@@ -280,24 +280,34 @@ void handle_timestamp_request(uint32_t from_index)
     /* Clamp start index */
     if (from_index >= prototype_timestamps_len) {
         ts_stream_idx = prototype_timestamps_len; /* nothing to send */
+        #ifdef CFG_PRINTF
+            arch_printf("\n\r[TIMESTAMP] Request index %u exceeds available (%u), terminating stream",
+                       from_index, prototype_timestamps_len);
+        #endif
     } else {
         ts_stream_idx = from_index;
+        #ifdef CFG_PRINTF
+            arch_printf("\n\r[TIMESTAMP] Request received: from_index=%u, total_available=%u",
+                       from_index, prototype_timestamps_len);
+        #endif
     }
-
-    #ifdef CFG_PRINTF
-        arch_printf("\n\rhandle_timestamp_request: start idx=%u, total=%u", ts_stream_idx, prototype_timestamps_len);
-    #endif
 
     /* Start immediate send of first chunk */
     ts_stream_timer_id = app_easy_timer(0, notify_timestamp_chunk);
+    #ifdef CFG_PRINTF
+        arch_printf("\n\r[TIMESTAMP] Streaming started, timer_id=%d", ts_stream_timer_id);
+    #endif
 }
 
-/* Sends up to 5 timestamps per notification (20 bytes) via CUSTS1_VAL_NTF_REQ */
+/* Sends up to 5 timestamps per notification (20 bytes) via CUSTS1_VAL_NTF_REQ.
+   Each notification contains 4-byte big-endian Unix timestamps.
+   Protocol: 1s delay between packets to avoid overwhelming mobile client. */
 void notify_timestamp_chunk(void)
 {
     if (ts_stream_idx >= prototype_timestamps_len) {
         #ifdef CFG_PRINTF
-            arch_printf("\n\rnotify_timestamp_chunk: done\n\r");
+            arch_printf("\n\r[NOTIFY] Stream complete. Sent %u of %u timestamps",
+                       prototype_timestamps_len, prototype_timestamps_len);
         #endif
         return;
     }
@@ -305,10 +315,12 @@ void notify_timestamp_chunk(void)
     uint8_t buf[20];
     uint8_t pos = 0;
     uint8_t sent = 0;
+    uint32_t chunk_start_idx = ts_stream_idx;
 
+    /* Pack up to 5 timestamps (4 bytes each = 20 bytes max) */
     while (pos + 4 <= sizeof(buf) && ts_stream_idx < prototype_timestamps_len && sent < 5) {
         uint32_t ts = prototype_timestamps[ts_stream_idx++];
-        /* Big-endian as per Go server */
+        /* Big-endian encoding as per GoLangServer protocol */
         buf[pos++] = (uint8_t)((ts >> 24) & 0xFF);
         buf[pos++] = (uint8_t)((ts >> 16) & 0xFF);
         buf[pos++] = (uint8_t)((ts >> 8) & 0xFF);
@@ -317,8 +329,9 @@ void notify_timestamp_chunk(void)
     }
 
     #ifdef CFG_PRINTF
-        arch_printf("\n\rnotify_timestamp_chunk: sending %d timestamps (bytes=%d)", sent, pos);
-        arch_printf("\n\rDATA: ");
+        arch_printf("\n\r[NOTIFY] Sending chunk: indices [%u-%u], %d timestamps, %d bytes",
+                   chunk_start_idx, ts_stream_idx - 1, sent, pos);
+        arch_printf("\n\r[NOTIFY] DATA: ");
         for (uint8_t i = 0; i < pos; i++) arch_printf("%02X ", buf[i]);
     #endif
 
@@ -334,18 +347,82 @@ void notify_timestamp_chunk(void)
     memcpy(req->value, buf, pos);
     ke_msg_send(req);
 
+    #ifdef CFG_PRINTF
+        arch_printf("\n\r[NOTIFY] Notification sent, handle=%d, remaining=%u",
+                   req->handle, (prototype_timestamps_len - ts_stream_idx));
+    #endif
+
     /* Schedule next chunk after ~1 second if there are more timestamps */
     if (ts_stream_idx < prototype_timestamps_len) {
         ts_stream_timer_id = app_easy_timer(MS_TO_TIMERUNITS(1000), notify_timestamp_chunk);
+        #ifdef CFG_PRINTF
+            arch_printf("\n\r[NOTIFY] Next chunk scheduled in 1s, timer_id=%d", ts_stream_timer_id);
+        #endif
     }
+}
+
+#include "rtc.h"
+
+/**
+ ****************************************************************************************
+ * @brief Convert Unix epoch (seconds) to RTC time/calendar structures (UTC)
+ *
+ * @param[in] epoch  Unix epoch seconds
+ * @param[out] t     rtc_time_t pointer to populate (hour,min,sec,hsec)
+ * @param[out] c     rtc_calendar_t pointer to populate (year,month,mday,wday)
+ *
+ * @note Simple conversion (UTC) sufficient for device RTC set from remote epoch.
+ ****************************************************************************************
+ */
+static void epoch_to_rtc(uint32_t epoch, rtc_time_t *t, rtc_calendar_t *c)
+{
+    uint32_t days = epoch / 86400u;
+    uint32_t rem = epoch % 86400u;
+
+    t->hour = rem / 3600u;
+    t->minute = (rem % 3600u) / 60u;
+    t->sec = rem % 60u;
+    t->hsec = 0; /* sub-second resolution not provided */
+
+    /* Compute year */
+    uint32_t year = 1970;
+    while (1) {
+        uint32_t isleap = ((year % 4 == 0 && year % 100 != 0) || (year % 400 == 0));
+        uint32_t days_in_year = 365 + isleap;
+        if (days < days_in_year) break;
+        days -= days_in_year;
+        year++;
+    }
+
+    /* Month lengths for the computed year */
+    const uint8_t month_days_norm[12] = {31,28,31,30,31,30,31,31,30,31,30,31};
+    uint8_t month = 0;
+    for (int m = 0; m < 12; m++) {
+        uint8_t mdays = month_days_norm[m];
+        if (m == 1) { /* February */
+            uint32_t isleap = ((year % 4 == 0 && year % 100 != 0) || (year % 400 == 0));
+            if (isleap) mdays = 29;
+        }
+        if (days < mdays) { month = m + 1; break; }
+        days -= mdays;
+    }
+
+    c->year = (uint16_t)year;
+    c->month = month;
+    c->mday = (uint8_t)(days + 1);
+
+    /* tm_wday: 0 = Sunday. 1970-01-01 was a Thursday (4). */
+    c->wday = (uint8_t)(( (epoch / 86400u) + 4u) % 7u);
 }
 
 /**
  ****************************************************************************************
  * @brief Message handler for CUSTS1 write events (Timestamp request / Update write).
+ *        This is called whenever a mobile client writes to any custom characteristic.
+ *        Implements the protocol defined in GoLangServer.
  *
- * @param[in] msgid    Message ID
- * @param[in] param    Pointer to CUSTS1_VAL_WRITE_IND message
+ * @param[in] msgid    Message ID (should be CUSTS1_VAL_WRITE_IND for writes)
+ * @param[in] param    Pointer to CUSTS1_VAL_WRITE_IND message containing write data
  * @param[in] dest_id  Destination task
  * @param[in] src_id   Source task
  *
@@ -363,23 +440,41 @@ void user_catch_rest_hndl(ke_msg_id_t const msgid,
         {
             struct custs1_val_write_ind const *msg = (struct custs1_val_write_ind const *)(param);
 
+            #ifdef CFG_PRINTF
+                arch_printf("\n\r[GATT] Write event received: handle=%d, length=%d", msg->handle, msg->length);
+            #endif
+
             switch (msg->handle)
             {
                 case TSVC_IDX_TIMESTAMP_REQ_VAL:
                 {
-                    /* Expect 4-byte big-endian index */
+                    /* Timestamp Request: mobile requests timestamp stream from a specific index.
+                       Expect 4-byte big-endian index (matches GoLangServer protocol) */
                     if (msg->length >= 4)
                     {
                         uint32_t from_index = ((uint32_t)msg->value[0] << 24) |
                                               ((uint32_t)msg->value[1] << 16) |
                                               ((uint32_t)msg->value[2] << 8)  |
                                               ((uint32_t)msg->value[3]);
+                        #ifdef CFG_PRINTF
+                            arch_printf("\n\r[GATT] Timestamp Request: index=0x%08X (%u)", from_index, from_index);
+                        #endif
                         handle_timestamp_request(from_index);
+                    }
+                    else
+                    {
+                        #ifdef CFG_PRINTF
+                            arch_printf("\n\r[GATT] ERROR: Timestamp Request too short (%d bytes, expected 4)",
+                                       msg->length);
+                        #endif
                     }
                 } break;
 
                 case USVC_IDX_UPDATE_VAL:
                 {
+                    /* Clock Update: mobile sends a 4-byte big-endian epoch/clock time.
+                       Device should update internal RTC with this value (implementation pending).
+                       Matches GoLangServer protocol. */
                     if (msg->length >= 4)
                     {
                         uint32_t new_epoch = ((uint32_t)msg->value[0] << 24) |
@@ -387,18 +482,48 @@ void user_catch_rest_hndl(ke_msg_id_t const msgid,
                                               ((uint32_t)msg->value[2] << 8)  |
                                               ((uint32_t)msg->value[3]);
                         #ifdef CFG_PRINTF
-                            arch_printf("\n\rReceived clock update: %u", new_epoch);
+                            arch_printf("\n\r[GATT] Clock Update received: epoch=0x%08X (%u)", new_epoch, new_epoch);
                         #endif
-                        /* In a full implementation set RTC/clock here */
+                        {
+                            rtc_time_t rtc_time;
+                            rtc_calendar_t rtc_calendar;
+
+                            /* Convert epoch -> rtc structures (UTC) */
+                            epoch_to_rtc(new_epoch, &rtc_time, &rtc_calendar);
+
+                            /* Attempt to set RTC calendar/time */
+                            rtc_status_code_t status = rtc_set_time_clndr(&rtc_time, &rtc_calendar);
+
+                            #ifdef CFG_PRINTF
+                                if (status == RTC_STATUS_CODE_VALID_ENTRY) {
+                                    arch_printf("\n\r[GATT] RTC updated successfully\n");
+                                } else {
+                                    arch_printf("\n\r[GATT] RTC update failed, status=%d\n", (int)status);
+                                }
+                            #endif
+                        }
+                    }
+                    else
+                    {
+                        #ifdef CFG_PRINTF
+                            arch_printf("\n\r[GATT] ERROR: Clock Update too short (%d bytes, expected 4)",
+                                       msg->length);
+                        #endif
                     }
                 } break;
 
                 default:
+                    #ifdef CFG_PRINTF
+                        arch_printf("\n\r[GATT] WARNING: Write to unknown handle %d", msg->handle);
+                    #endif
                     break;
             }
         } break;
 
         default:
+            #ifdef CFG_PRINTF
+                arch_printf("\n\r[GATT] Unhandled message ID: 0x%04X", msgid);
+            #endif
             break;
     }
 }
