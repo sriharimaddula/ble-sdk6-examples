@@ -1430,21 +1430,6 @@
           </Files>
         </Group>
         <Group>
-        <Group>
-          <GroupName>custom_profile</GroupName>
-          <Files>
-            <File>
-              <FileName>user_custs1_def.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\src\custom_profile\user_custs1_def.c</FilePath>
-            </File>
-            <File>
-              <FileName>user_custs_config.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\src\custom_profile\user_custs_config.c</FilePath>
-            </File>
-          </Files>
-        </Group>
           <GroupName>user_app</GroupName>
           <Files>
             <File>
@@ -2880,21 +2865,6 @@
           </Files>
         </Group>
         <Group>
-        <Group>
-          <GroupName>custom_profile</GroupName>
-          <Files>
-            <File>
-              <FileName>user_custs1_def.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\src\custom_profile\user_custs1_def.c</FilePath>
-            </File>
-            <File>
-              <FileName>user_custs_config.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\src\custom_profile\user_custs_config.c</FilePath>
-            </File>
-          </Files>
-        </Group>
           <GroupName>user_app</GroupName>
           <Files>
             <File>
@@ -4243,21 +4213,6 @@
           </Files>
         </Group>
         <Group>
-        <Group>
-          <GroupName>custom_profile</GroupName>
-          <Files>
-            <File>
-              <FileName>user_custs1_def.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\src\custom_profile\user_custs1_def.c</FilePath>
-            </File>
-            <File>
-              <FileName>user_custs_config.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\src\custom_profile\user_custs_config.c</FilePath>
-            </File>
-          </Files>
-        </Group>
           <GroupName>user_app</GroupName>
           <Files>
             <File>
@@ -5599,21 +5554,6 @@
           </Files>
         </Group>
         <Group>
-        <Group>
-          <GroupName>custom_profile</GroupName>
-          <Files>
-            <File>
-              <FileName>user_custs1_def.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\src\custom_profile\user_custs1_def.c</FilePath>
-            </File>
-            <File>
-              <FileName>user_custs_config.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\src\custom_profile\user_custs_config.c</FilePath>
-            </File>
-          </Files>
-        </Group>
           <GroupName>user_app</GroupName>
           <Files>
             <File>
@@ -6940,21 +6880,6 @@
           </Files>
         </Group>
         <Group>
-        <Group>
-          <GroupName>custom_profile</GroupName>
-          <Files>
-            <File>
-              <FileName>user_custs1_def.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\src\custom_profile\user_custs1_def.c</FilePath>
-            </File>
-            <File>
-              <FileName>user_custs_config.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\src\custom_profile\user_custs_config.c</FilePath>
-            </File>
-          </Files>
-        </Group>
           <GroupName>user_app</GroupName>
           <Files>
             <File>
