@@ -34,6 +34,7 @@
  */
  
 #include "user_ble_burst_adv.h"
+#include "gpio.h"
 
 
 /**
@@ -69,6 +70,47 @@ static uint8_t adv_data_len = 0;
  * FUNCTION DEFINITIONS
  ****************************************************************************************
 */
+
+/**
+ ****************************************************************************************
+ * @brief Blink LED for 100ms.
+ * 
+ * @param[in] None. 
+ *
+ * @return None.
+ ****************************************************************************************
+ */
+static void led_blink_on(void)
+{
+    /* Turn LED on */
+    GPIO_SetActive(LED_PORT, LED_PIN);
+    
+    #ifdef CFG_PRINTF
+        arch_printf("\n\rLED ON");
+    #endif
+    
+    /* Schedule LED turn off after 100ms */
+    app_easy_timer(MS_TO_TIMERUNITS(100), led_blink_off);
+}
+
+/**
+ ****************************************************************************************
+ * @brief Turn LED off (callback from timer).
+ * 
+ * @param[in] None. 
+ *
+ * @return None.
+ ****************************************************************************************
+ */
+static void led_blink_off(void)
+{
+    /* Turn LED off */
+    GPIO_SetInactive(LED_PORT, LED_PIN);
+    
+    #ifdef CFG_PRINTF
+        arch_printf("\n\rLED OFF");
+    #endif
+}
 
 /**
  ****************************************************************************************
@@ -114,7 +156,22 @@ static void update_and_advertise(void)
 
 /**
  ****************************************************************************************
- * @brief Start advertising and also start timer that when fires will stop advertising.
+ * @brief Button press interrupt handler.
+ * 
+ * @param[in] None. 
+ *
+ * @return None.
+ ****************************************************************************************
+ */
+static void button_press_isr(void)
+{
+    /* Trigger advertisement burst on button press */
+    start_advertising();
+}
+
+/**
+ ****************************************************************************************
+ * @brief Start advertising burst on button press.
  * 
  * @param[in] None. 
  *
@@ -133,6 +190,9 @@ static void start_advertising(void)
 
     /* Update advertisement data with counter and advertise */
     update_and_advertise();
+
+    /* Blink LED */
+    led_blink_on();
 
   	#ifdef CFG_PRINTF
 	      arch_printf("\n\radv_period_ticks: %d", adv_period_ticks);
@@ -153,12 +213,20 @@ static void start_advertising(void)
 void user_on_set_dev_config_complete(void)
 {
     #ifdef CFG_PRINTF
-	      arch_printf("\n\r%s", __FUNCTION__);
+	      arch_printf("\n\r%s - Ready for button press", __FUNCTION__);
 	  #endif
 	
     default_app_on_set_dev_config_complete();
 	
-	  start_advertising();
+	  /* Initialize button with interrupt handler */
+	  GPIO_ConfigurePin(BUTTON_PORT, BUTTON_PIN, INPUT_PULLUP, PID_GPIO, false);
+	  GPIO_EnableIRQ(BUTTON_PORT, BUTTON_PIN, GPIO0_IRQn, GPIO_IRQ_INPUT_LEVEL_LOW, 
+	                 true, BUTTON_IRQ_DEBOUNCE_MS);
+	  GPIO_RegisterCallback(GPIO0_IRQn, button_press_isr);
+	  
+	  /* Initialize LED */
+	  GPIO_ConfigurePin(LED_PORT, LED_PIN, OUTPUT, PID_GPIO, false);
+	  GPIO_SetInactive(LED_PORT, LED_PIN);  /* LED off initially */
 }
 
 /**
@@ -176,22 +244,11 @@ void user_on_adv_undirect_complete(uint8_t status)
 	      arch_printf("\n\r%s - status: %d", __FUNCTION__, status);
 	  #endif
 	
-	  /* This callback is triggered when the application stops advertising and a burst 
-	     is complete and also when a connection has been created. We only want to restart
-       the burst period timer in the first case and can detect the reason for the call 
-       using the status parameter.	*/
+	  /* Advertisement burst completed - waiting for next button press */
 	  if (status != 0)
 	  {
-        /* Start timer which when fires will restart advertising - adjusted for time 
-	         spent advertising so that time between one busrt starting and the next starting
-	         is what the user set via BURST_REPEAT_PERIOD_ms */
-	      adv_burst_timer_id = app_easy_timer(BURST_REPEAT_PERIOD_TICKS - adv_period_ticks, 
-	                                          start_advertising);
-	
         #ifdef CFG_PRINTF
-	          arch_printf("\n\radv_burst_timer_delay: %d", 
-					                    BURST_REPEAT_PERIOD_TICKS - adv_period_ticks);
-            arch_printf("\n\radv_burst_timer_id: %d", adv_burst_timer_id);
+	          arch_printf("\n\rBurst complete - Press button for next advertisement");
 	      #endif
     }
 }

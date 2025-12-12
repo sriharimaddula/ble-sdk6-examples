@@ -53,7 +53,9 @@
 #include "gapm_task.h"                 // gap functions and messages
 #include "app.h"                       // application definitions
 #include "app_easy_gap.h"              // easy gap functions
+#include "app_easy_timer.h"            // easy timer functions
 #include "co_error.h"                  // error code definitions
+#include "config/user_periph_setup.h"  // peripheral setup definitions
 
 #ifdef CFG_PRINTF
     #include "arch_console.h"
