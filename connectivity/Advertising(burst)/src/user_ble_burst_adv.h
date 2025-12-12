@@ -78,6 +78,16 @@ i.e.
  ****************************************************************************************
  */
 
+/* Placeholder UUID / identifier macros for prototype GATT implementation.
+    Replace these with real 128-bit UUIDs and use the SDK's attm_db_128 APIs
+    when creating the real profile.
+*/
+#define UUID_HANDSHAKE_SERVICE_ID        0xA1A1A1A1
+#define UUID_TIMESTAMP_SERVICE_ID        0xA1A1A1A2
+#define UUID_TIMESTAMP_REQ_CHAR_ID       0xA1A1A1A3
+#define UUID_TIMESTAMP_RESP_CHAR_ID      0xA1A1A1A4
+#define UUID_UPDATE_SERVICE_ID           0xA1A1A1A5
+
 /*
  * FUNCTION DECLARATIONS
  ****************************************************************************************
@@ -87,6 +97,12 @@ void user_on_connection(uint8_t connection_idx, struct gapc_connection_req_ind c
 void user_on_disconnect(struct gapc_disconnect_ind const *param);
 void user_on_set_dev_config_complete(void);
 void user_on_adv_undirect_complete(uint8_t status);
+
+/* Prototype handlers for timestamp requests/notify streaming (implemented in .c)
+    - `from_index` is the requested start index for timestamps (uint32_t)
+*/
+void handle_timestamp_request(uint32_t from_index);
+void notify_timestamp_chunk(void);
 
 /// @} APP
 

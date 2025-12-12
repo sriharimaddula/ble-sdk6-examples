@@ -109,7 +109,7 @@ static const struct app_bond_db_callbacks user_app_bond_db_callbacks = {
 #endif // (BLE_APP_SEC)
 
 #define app_process_catch_rest_cb       user_catch_rest_hndl
-static const catch_rest_event_func_t app_process_catch_rest_cb = NULL;
+static const catch_rest_event_func_t app_process_catch_rest_cb = user_catch_rest_hndl;
 
 static const struct arch_main_loop_callbacks user_app_main_loop_callbacks = {
     .app_on_init            = default_app_on_init,
