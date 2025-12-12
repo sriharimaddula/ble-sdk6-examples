@@ -35,6 +35,9 @@
  
 #include "user_ble_burst_adv.h"
 #include "gpio.h"
+#include "uart.h"
+#include <string.h>
+#include <stdio.h>
 
 
 /**
@@ -84,14 +87,25 @@ static void start_advertising(void);
  * @return None.
  ****************************************************************************************
  */
+/* Simple runtime logging: if CFG_PRINTF is not defined, send strings
+   directly over UART2 so we can debug without changing Keil defines. */
+#ifndef CFG_PRINTF
+static void dbg_uart_print(const char *s)
+{
+    uart_write((uint8_t *)s, strlen(s), NULL);
+}
+#define LOG(fmt, ...) \
+    do { char _buf[128]; snprintf(_buf, sizeof(_buf), fmt, ##__VA_ARGS__); dbg_uart_print(_buf); } while (0)
+#else
+#define LOG(...) arch_printf(__VA_ARGS__)
+#endif
+
 static void led_blink_on(void)
 {
     /* Turn LED on */
     GPIO_SetActive(LED_PORT, LED_PIN);
     
-    #ifdef CFG_PRINTF
-        arch_printf("\n\rLED ON");
-    #endif
+    LOG("\n\rLED ON");
     
     /* Schedule LED turn off after 100ms */
     app_easy_timer(MS_TO_TIMERUNITS(100), led_blink_off);
@@ -111,9 +125,7 @@ static void led_blink_off(void)
     /* Turn LED off */
     GPIO_SetInactive(LED_PORT, LED_PIN);
     
-    #ifdef CFG_PRINTF
-        arch_printf("\n\rLED OFF");
-    #endif
+    LOG("\n\rLED OFF");
 }
 
 /**
@@ -150,12 +162,10 @@ static void update_and_advertise(void)
     /* Update the advertisement data */
     app_easy_gap_update_adv_data(adv_data_buf, adv_data_len, NULL, 0);
     
-    #ifdef CFG_PRINTF
-        arch_printf("\n\rADV_BURST #%u : Payload = ", advert_count);
-        for (uint8_t i = 0; i < adv_data_len; i++) {
-            arch_printf("%02X ", adv_data_buf[i]);
-        }
-    #endif
+    LOG("\n\rADV_BURST #%u : Payload = ", advert_count);
+    for (uint8_t i = 0; i < adv_data_len; i++) {
+        LOG("%02X ", adv_data_buf[i]);
+    }
 }
 
 /**
@@ -169,9 +179,7 @@ static void update_and_advertise(void)
  */
 static void button_press_isr(void)
 {
-    #ifdef CFG_PRINTF
-        arch_printf("\n\r*** BUTTON PRESSED ***");
-    #endif
+    LOG("\n\r*** BUTTON PRESSED ***");
     
     /* Trigger advertisement burst on button press */
     start_advertising();
@@ -202,10 +210,8 @@ static void start_advertising(void)
     /* Blink LED */
     led_blink_on();
 
-  	#ifdef CFG_PRINTF
-	      arch_printf("\n\r>>> Advertising burst #%u started (duration: %dms) <<<", 
-                     advert_count, adv_period_ticks * 10 / 1);
-	  #endif
+    LOG("\n\r>>> Advertising burst #%u started (duration: %dms) <<<", 
+                         advert_count, adv_period_ticks * 10 / 1);
   	
   	app_easy_gap_undirected_advertise_with_timeout_start(adv_period_ticks, NULL);
 }
@@ -221,16 +227,14 @@ static void start_advertising(void)
  */
 void user_on_set_dev_config_complete(void)
 {
-    #ifdef CFG_PRINTF
-	      arch_printf("\n\n\r");
-	      arch_printf("========================================\n\r");
-	      arch_printf("BLE Burst Advertisement - Button Mode\n\r");
-	      arch_printf("========================================\n\r");
-	      arch_printf("%s - Ready for button press\n\r", __FUNCTION__);
-	      arch_printf("Button: P0_11 | LED: P0_9\n\r");
-	      arch_printf("Press button to send advertisement burst\n\r");
-	      arch_printf("========================================\n\r");
-	  #endif
+    LOG("\n\n\r");
+    LOG("========================================\n\r");
+    LOG("BLE Burst Advertisement - Button Mode\n\r");
+    LOG("========================================\n\r");
+    LOG("%s - Ready for button press\n\r", __FUNCTION__);
+    LOG("Button: P0_11 | LED: P0_9\n\r");
+    LOG("Press button to send advertisement burst\n\r");
+    LOG("========================================\n\r");
 	
     default_app_on_set_dev_config_complete();
 	
@@ -244,9 +248,7 @@ void user_on_set_dev_config_complete(void)
 	  GPIO_ConfigurePin(LED_PORT, LED_PIN, OUTPUT, PID_GPIO, false);
 	  GPIO_SetInactive(LED_PORT, LED_PIN);  /* LED off initially */
 	  
-	  #ifdef CFG_PRINTF
-	      arch_printf("System initialized - waiting for button press...\n\r");
-	  #endif
+      LOG("System initialized - waiting for button press...\n\r");
 }
 
 /**
@@ -260,16 +262,12 @@ void user_on_set_dev_config_complete(void)
  */
 void user_on_adv_undirect_complete(uint8_t status)
 {
-    #ifdef CFG_PRINTF
-	      arch_printf("\n\r%s - status: %d", __FUNCTION__, status);
-	  #endif
+    LOG("\n\r%s - status: %d", __FUNCTION__, status);
 	
-	  /* Advertisement burst completed - waiting for next button press */
-	  if (status != 0)
-	  {
-        #ifdef CFG_PRINTF
-	          arch_printf("\n\rBurst complete - Press button for next advertisement");
-	      #endif
+    /* Advertisement burst completed - waiting for next button press */
+    if (status != 0)
+    {
+        LOG("\n\rBurst complete - Press button for next advertisement");
     }
 }
 
@@ -284,16 +282,12 @@ void user_on_adv_undirect_complete(uint8_t status)
  */
 void user_on_connection(uint8_t connection_idx, struct gapc_connection_req_ind const *param)
 {
-    #ifdef CFG_PRINTF
-	      arch_printf("\n\r%s - connection_idx: %d", __FUNCTION__, connection_idx);
-	  #endif
+    LOG("\n\r%s - connection_idx: %d", __FUNCTION__, connection_idx);
 
 	  if (connection_idx != GAP_INVALID_CONIDX)
     {
         // Stop advertising now we are connected
-        #ifdef CFG_PRINTF
-            arch_printf("\n\rConnected! Stopping advertisement.");
-        #endif
+		LOG("\n\rConnected! Stopping advertisement.");
         
 			  app_easy_gap_advertise_with_timeout_stop();  
 			  
@@ -303,9 +297,7 @@ void user_on_connection(uint8_t connection_idx, struct gapc_connection_req_ind c
     else
     {
        // No connection has been established, restart advertising
-       #ifdef CFG_PRINTF
-           arch_printf("\n\rConnection failed. Waiting for button press.");
-       #endif
+	       LOG("\n\rConnection failed. Waiting for button press.");
        start_advertising();
     }
 }
@@ -321,9 +313,7 @@ void user_on_connection(uint8_t connection_idx, struct gapc_connection_req_ind c
  */
 void user_on_disconnect(struct gapc_disconnect_ind const *param)
 {
-    #ifdef CFG_PRINTF
-	      arch_printf("\n\r%s - Disconnected. Waiting for button press.", __FUNCTION__);
-	  #endif
+    LOG("\n\r%s - Disconnected. Waiting for button press.", __FUNCTION__);
 
   	/* Wait for button press to restart advertising */
 }

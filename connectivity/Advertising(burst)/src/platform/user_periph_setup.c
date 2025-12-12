@@ -91,8 +91,11 @@ void set_pad_functions(void)
 #endif
 }
 
-#if defined (CFG_PRINTF_UART2)
-// Configuration struct for UART2
+#if !defined(FORCE_UART_DEBUG)
+#define FORCE_UART_DEBUG 1
+#endif
+
+// Configuration struct for UART2 (always available for runtime debug)
 static const uart_cfg_t uart_cfg = {
     .baud_rate = UART2_BAUDRATE,
     .data_bits = UART2_DATABITS,
@@ -104,7 +107,6 @@ static const uart_cfg_t uart_cfg = {
     .rx_fifo_tr_lvl = UART2_RX_FIFO_LEVEL,
     .intr_priority = 2,
 };
-#endif
 
 void periph_init(void)
 {
@@ -126,10 +128,13 @@ void periph_init(void)
     patch_func();
 
     // Initialize peripherals
-#if defined (CFG_PRINTF_UART2)
-    // Initialize UART2
-    uart_initialize(UART2, &uart_cfg);
-#endif
+    // Force-initialize UART2 for runtime debugging when requested.
+    // This ignores compile-time CFG_PRINTF guards so runtime UART is available.
+    if (FORCE_UART_DEBUG) {
+        // Configure UART2 TX pad (ensure pad configured before init)
+        GPIO_ConfigurePin(UART2_TX_PORT, UART2_TX_PIN, OUTPUT, PID_UART2_TX, false);
+        uart_initialize(UART2, &uart_cfg);
+    }
 
     // Set pad functionality
     set_pad_functions();
