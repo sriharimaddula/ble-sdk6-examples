@@ -169,6 +169,10 @@ static void update_and_advertise(void)
  */
 static void button_press_isr(void)
 {
+    #ifdef CFG_PRINTF
+        arch_printf("\n\r*** BUTTON PRESSED ***");
+    #endif
+    
     /* Trigger advertisement burst on button press */
     start_advertising();
 }
@@ -199,7 +203,8 @@ static void start_advertising(void)
     led_blink_on();
 
   	#ifdef CFG_PRINTF
-	      arch_printf("\n\radv_period_ticks: %d", adv_period_ticks);
+	      arch_printf("\n\r>>> Advertising burst #%u started (duration: %dms) <<<", 
+                     advert_count, adv_period_ticks * 10 / 1);
 	  #endif
   	
   	app_easy_gap_undirected_advertise_with_timeout_start(adv_period_ticks, NULL);
@@ -217,7 +222,14 @@ static void start_advertising(void)
 void user_on_set_dev_config_complete(void)
 {
     #ifdef CFG_PRINTF
-	      arch_printf("\n\r%s - Ready for button press", __FUNCTION__);
+	      arch_printf("\n\n\r");
+	      arch_printf("========================================\n\r");
+	      arch_printf("BLE Burst Advertisement - Button Mode\n\r");
+	      arch_printf("========================================\n\r");
+	      arch_printf("%s - Ready for button press\n\r", __FUNCTION__);
+	      arch_printf("Button: P0_11 | LED: P0_9\n\r");
+	      arch_printf("Press button to send advertisement burst\n\r");
+	      arch_printf("========================================\n\r");
 	  #endif
 	
     default_app_on_set_dev_config_complete();
@@ -231,6 +243,10 @@ void user_on_set_dev_config_complete(void)
 	  /* Initialize LED */
 	  GPIO_ConfigurePin(LED_PORT, LED_PIN, OUTPUT, PID_GPIO, false);
 	  GPIO_SetInactive(LED_PORT, LED_PIN);  /* LED off initially */
+	  
+	  #ifdef CFG_PRINTF
+	      arch_printf("System initialized - waiting for button press...\n\r");
+	  #endif
 }
 
 /**
@@ -275,6 +291,10 @@ void user_on_connection(uint8_t connection_idx, struct gapc_connection_req_ind c
 	  if (connection_idx != GAP_INVALID_CONIDX)
     {
         // Stop advertising now we are connected
+        #ifdef CFG_PRINTF
+            arch_printf("\n\rConnected! Stopping advertisement.");
+        #endif
+        
 			  app_easy_gap_advertise_with_timeout_stop();  
 			  
 			  // Enable the created profiles/services
@@ -283,6 +303,9 @@ void user_on_connection(uint8_t connection_idx, struct gapc_connection_req_ind c
     else
     {
        // No connection has been established, restart advertising
+       #ifdef CFG_PRINTF
+           arch_printf("\n\rConnection failed. Waiting for button press.");
+       #endif
        start_advertising();
     }
 }
@@ -299,11 +322,10 @@ void user_on_connection(uint8_t connection_idx, struct gapc_connection_req_ind c
 void user_on_disconnect(struct gapc_disconnect_ind const *param)
 {
     #ifdef CFG_PRINTF
-	      arch_printf("\n\r%s", __FUNCTION__);
+	      arch_printf("\n\r%s - Disconnected. Waiting for button press.", __FUNCTION__);
 	  #endif
 
-  	/* Restart burst advertising */
-	  start_advertising();
+  	/* Wait for button press to restart advertising */
 }
 
 /// @} APP
