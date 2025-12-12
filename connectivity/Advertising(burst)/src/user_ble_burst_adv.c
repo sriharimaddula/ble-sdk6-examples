@@ -66,6 +66,10 @@ static uint32_t advert_count = 0;
 static uint8_t adv_data_buf[31];
 static uint8_t adv_data_len = 0;
 
+/* Forward declarations */
+static void led_blink_off(void);
+static void start_advertising(void);
+
 /*
  * FUNCTION DEFINITIONS
  ****************************************************************************************
