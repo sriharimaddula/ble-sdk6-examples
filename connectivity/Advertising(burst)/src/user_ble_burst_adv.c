@@ -53,10 +53,64 @@
 static timer_hnd adv_burst_timer_id		__attribute__((section(".bss."))); // @RETENTION MEMORY
 static uint16_t adv_period_ticks      __attribute__((section(".bss."))); // @RETENTION MEMORY
 
+/* Advertisement burst counter */
+static uint32_t advert_count = 0;
+
+/* Advertisement data buffer with counter byte (manufacturer data) */
+/* Format: length(1) + type(1) + company_id(2) + counter(1) = 5 bytes total
+   \x04 = length (4 bytes follow)
+   \xFF = manufacturer specific data type
+   \x4C\x00 = Apple company ID (little endian)
+   counter byte will be updated dynamically */
+static uint8_t adv_data_buf[31];
+static uint8_t adv_data_len = 0;
+
 /*
  * FUNCTION DEFINITIONS
  ****************************************************************************************
 */
+
+/**
+ ****************************************************************************************
+ * @brief Update advertisement data with counter byte and advertise it.
+ * 
+ * @param[in] None. 
+ *
+ * @return None.
+ ****************************************************************************************
+ */
+static void update_and_advertise(void)
+{
+    /* Base advertising data: DIS service UUID */
+    const uint8_t base_adv_data[] = {0x03, 0x03, 0x0A, 0x18};
+    
+    /* Build new adv data: base data + manufacturer data with counter */
+    uint8_t idx = 0;
+    
+    /* Copy base advertising data */
+    for (uint8_t i = 0; i < sizeof(base_adv_data); i++) {
+        adv_data_buf[idx++] = base_adv_data[i];
+    }
+    
+    /* Add manufacturer specific data: length(1) + type(1) + company_id(2) + counter(1) */
+    adv_data_buf[idx++] = 0x04;  /* Length: 4 bytes follow */
+    adv_data_buf[idx++] = 0xFF;  /* Manufacturer Specific Data type */
+    adv_data_buf[idx++] = 0x4C;  /* Apple Company ID (low byte) */
+    adv_data_buf[idx++] = 0x00;  /* Apple Company ID (high byte) */
+    adv_data_buf[idx++] = (uint8_t)(advert_count & 0xFF);  /* Counter byte */
+    
+    adv_data_len = idx;
+    
+    /* Update the advertisement data */
+    app_easy_gap_update_adv_data(adv_data_buf, adv_data_len, NULL, 0);
+    
+    #ifdef CFG_PRINTF
+        arch_printf("\n\rADV_BURST #%u : Payload = ", advert_count);
+        for (uint8_t i = 0; i < adv_data_len; i++) {
+            arch_printf("%02X ", adv_data_buf[i]);
+        }
+    #endif
+}
 
 /**
  ****************************************************************************************
@@ -74,8 +128,13 @@ static void start_advertising(void)
 	     number of events. */
     adv_period_ticks = MS_TO_TIMERUNITS((user_adv_conf.intv_min * 0.625) * ADV_EVENTS_PER_BURST);
 
+    /* Increment advertisement burst counter */
+    advert_count++;
+
+    /* Update advertisement data with counter and advertise */
+    update_and_advertise();
+
   	#ifdef CFG_PRINTF
-	      arch_printf("\n\r%s", __FUNCTION__);
 	      arch_printf("\n\radv_period_ticks: %d", adv_period_ticks);
 	  #endif
   	

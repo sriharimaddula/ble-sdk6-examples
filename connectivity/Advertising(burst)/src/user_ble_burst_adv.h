@@ -52,6 +52,7 @@
 #include "gapc_task.h"                 // gap functions and messages
 #include "gapm_task.h"                 // gap functions and messages
 #include "app.h"                       // application definitions
+#include "app_easy_gap.h"              // easy gap functions
 #include "co_error.h"                  // error code definitions
 
 #ifdef CFG_PRINTF
