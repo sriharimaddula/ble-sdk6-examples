@@ -71,22 +71,6 @@ static uint32_t advert_count = 0;
 static uint8_t adv_data_buf[31];
 static uint8_t adv_data_len = 0;
 
-/* Prototype timestamps for streaming (prototype data). Each entry is a 32-bit
-   Unix timestamp. Replace with persistent storage or file read for production. */
-static const uint32_t prototype_timestamps[] = {
-    1622505600u, /* 2021-06-01T00:00:00Z */
-    1622509200u,
-    1622512800u,
-    1622516400u,
-    1622520000u,
-    1622523600u,
-    1622527200u,
-    1622530800u,
-    1622534400u,
-    1622538000u
-};
-static const uint32_t prototype_timestamps_len = sizeof(prototype_timestamps) / sizeof(prototype_timestamps[0]);
-
 /* Device state storage (reminders, system time) */
 static device_state_t device_state __attribute__((section(".bss."))) = {0};
 
@@ -558,33 +542,33 @@ void handle_handshake_write(const uint8_t *data, uint16_t length)
     }
     else if (!first_packet)
     {
-        // Subsequent packets: parse reminder timestamps (each 4 bytes)
+        // Subsequent packets: parse reminder timestamps (minutes since midnight, 4 bytes each)
         uint16_t offset = 0;
         
         while (offset + 4 <= length && reminders_received < expected_reminder_count)
         {
-            uint32_t reminder_timestamp = ((uint32_t)data[offset] << 24) |
-                                          ((uint32_t)data[offset + 1] << 16) |
-                                          ((uint32_t)data[offset + 2] << 8)  |
-                                          ((uint32_t)data[offset + 3]);
+            uint32_t minutes_since_midnight = ((uint32_t)data[offset] << 24) |
+                                               ((uint32_t)data[offset + 1] << 16) |
+                                               ((uint32_t)data[offset + 2] << 8)  |
+                                               ((uint32_t)data[offset + 3]);
             
-            // Convert timestamp to hour/minute (simplified - just store timestamp for now)
-            // In production, parse based on schedule time of day
-            uint32_t seconds_in_day = reminder_timestamp % 86400;
-            uint8_t hour = (seconds_in_day / 3600) % 24;
-            uint8_t minute = (seconds_in_day % 3600) / 60;
-            
-            if (device_state.reminder_count < MAX_REMINDERS)
+            // Validate minutes (0-1439 for 24 hours)
+            if (minutes_since_midnight < 1440)
             {
-                device_state.reminders[device_state.reminder_count].hour = hour;
-                device_state.reminders[device_state.reminder_count].minute = minute;
-                device_state.reminder_count++;
+                if (device_state.reminder_count < MAX_REMINDERS)
+                {
+                    device_state.reminders[device_state.reminder_count].minutes_since_midnight = 
+                        (uint16_t)minutes_since_midnight;
+                    device_state.reminder_count++;
+                }
             }
             
             reminders_received++;
             offset += 4;
             
             #ifdef CFG_PRINTF
+                uint8_t hour = minutes_since_midnight / 60;
+                uint8_t minute = minutes_since_midnight % 60;
                 arch_printf("\n\r[HANDSHAKE] Reminder %u: %02d:%02d", 
                            reminders_received, hour, minute);
             #endif
@@ -639,21 +623,26 @@ void handle_update_write(const uint8_t *data, uint16_t length)
 
 /*
  * Timestamp request handling & chunked notify streaming (prototype)
+ * NOTE: For production, replace with actual persistent storage query.
+ * Currently uses dummy data with 10 test timestamps.
  */
 void handle_timestamp_request(uint32_t from_index)
 {
+    // For testing: assume we have 10 dummy timestamps available
+    const uint32_t total_timestamps = 10;
+    
     /* Clamp start index */
-    if (from_index >= prototype_timestamps_len) {
-        ts_stream_idx = prototype_timestamps_len; /* nothing to send */
+    if (from_index >= total_timestamps) {
+        ts_stream_idx = total_timestamps; /* nothing to send */
         #ifdef CFG_PRINTF
             arch_printf("\n\r[TIMESTAMP] Request index %u exceeds available (%u), terminating stream",
-                       from_index, prototype_timestamps_len);
+                       from_index, total_timestamps);
         #endif
         return;
     }
     
     ts_stream_idx = from_index;
-    uint32_t remaining_count = prototype_timestamps_len - from_index;
+    uint32_t remaining_count = total_timestamps - from_index;
     
     #ifdef CFG_PRINTF
         arch_printf("\n\r[TIMESTAMP] Request received: from_index=%u, remaining=%u",
@@ -692,13 +681,18 @@ void handle_timestamp_request(uint32_t from_index)
 
 /* Sends up to 5 timestamps per notification (20 bytes) via CUSTS1_VAL_NTF_REQ.
    Each notification contains 4-byte big-endian Unix timestamps.
-   Protocol: 1s delay between packets to avoid overwhelming mobile client. */
+   Protocol: 1s delay between packets to avoid overwhelming mobile client.
+   
+   NOTE: For production, replace with actual persistent timestamp storage.
+   Currently generates dummy data for testing. */
 void notify_timestamp_chunk(void)
 {
-    if (ts_stream_idx >= prototype_timestamps_len) {
+    // For testing: assume we have 10 dummy timestamps to send
+    const uint32_t total_timestamps = 10;
+    
+    if (ts_stream_idx >= total_timestamps) {
         #ifdef CFG_PRINTF
-            arch_printf("\n\r[NOTIFY] Stream complete. Sent %u of %u timestamps",
-                       prototype_timestamps_len, prototype_timestamps_len);
+            arch_printf("\n\r[NOTIFY] Stream complete. Sent %u timestamps", total_timestamps);
         #endif
         return;
     }
@@ -709,8 +703,11 @@ void notify_timestamp_chunk(void)
     uint32_t chunk_start_idx = ts_stream_idx;
 
     /* Pack up to 5 timestamps (4 bytes each = 20 bytes max) */
-    while (pos + 4 <= sizeof(buf) && ts_stream_idx < prototype_timestamps_len && sent < 5) {
-        uint32_t ts = prototype_timestamps[ts_stream_idx++];
+    while (pos + 4 <= sizeof(buf) && ts_stream_idx < total_timestamps && sent < 5) {
+        // Generate dummy timestamp: base time + index offset (for testing)
+        uint32_t ts = 1622505600u + (ts_stream_idx * 3600);  // hourly increments
+        ts_stream_idx++;
+        
         /* Big-endian encoding as per GoLangServer protocol */
         buf[pos++] = (uint8_t)((ts >> 24) & 0xFF);
         buf[pos++] = (uint8_t)((ts >> 16) & 0xFF);

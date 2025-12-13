@@ -46,7 +46,7 @@
 #define DEF_TSVC_RESP_CHAR_LEN 20   /* 20-byte chunks (5 timestamps) */
 #define DEF_UPDATE_CHAR_LEN     4   /* 4-byte epoch time */
 
-#define MAX_REMINDERS 10            /* Maximum number of reminders to store */
+#define MAX_REMINDERS 5             /* Max 5 reminders (fits in 2 BLE packets: 1 header + 1 data) */
 
 /* CUSTS1 index enum */
 enum
@@ -72,18 +72,17 @@ enum
     CUSTS1_IDX_NB
 };
 
-/* Reminder structure for scheduling */
+/* Reminder structure for scheduling (optimized for memory) */
 typedef struct {
-    uint8_t hour;    /* 0-23 */
-    uint8_t minute;  /* 0-59 */
+    uint16_t minutes_since_midnight;  /* 0-1439 (24*60-1), saves RAM vs hour+minute */
 } reminder_t;
 
 /* Device state structure */
 typedef struct {
     uint32_t system_time;                    /* Current system time (epoch seconds) */
-    uint32_t reminder_count;                 /* Number of active reminders */
-    reminder_t reminders[MAX_REMINDERS];    /* Reminder storage */
+    uint8_t reminder_count;                  /* Number of active reminders (uint8 sufficient) */
     bool handshake_complete;                /* Set after successful handshake */
+    reminder_t reminders[MAX_REMINDERS];    /* Reminder storage */
 } device_state_t;
 
 #endif // _USER_CUSTS1_DEF_H_

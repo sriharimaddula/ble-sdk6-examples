@@ -50,7 +50,7 @@ fun configure(minutesOfDay: IntArray) {
     if (currConnState == BluetoothProfile.STATE_CONNECTED) {
         startSequentialWrite()  // ✓ Works if already connected
     } else {
-        connect()  // ❌ Sets pendingWrites but doesn't set pendingWorkType!
+        connect()  // ❌ Sets pending but doesn't set pendingWorkType!
     }
 }
 ```
