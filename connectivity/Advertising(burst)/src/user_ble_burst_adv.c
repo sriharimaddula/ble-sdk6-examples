@@ -37,7 +37,7 @@
 #include "gattc_task.h"
 #include "prf_utils.h"
 #include "custom_profile/user_custs1_def.h"
-#include "rtc.h"
+// #include "rtc.h"  // RTC support disabled - add rtc.c to Keil project to enable
 
 
 /**
@@ -363,8 +363,8 @@ void notify_timestamp_chunk(void)
     }
 }
 
-#include "rtc.h"
-
+/* RTC support disabled - to enable, add sdk/platform/driver/rtc/rtc.c to Keil project */
+#if 0
 /**
  ****************************************************************************************
  * @brief Convert Unix epoch (seconds) to RTC time/calendar structures (UTC)
@@ -416,6 +416,7 @@ static void epoch_to_rtc(uint32_t epoch, rtc_time_t *t, rtc_calendar_t *c)
     /* tm_wday: 0 = Sunday. 1970-01-01 was a Thursday (4). */
     c->wday = (uint8_t)(( (epoch / 86400u) + 4u) % 7u);
 }
+#endif  /* RTC disabled */
 
 /**
  ****************************************************************************************
@@ -485,7 +486,11 @@ void user_catch_rest_hndl(ke_msg_id_t const msgid,
                                               ((uint32_t)msg->value[3]);
                         #ifdef CFG_PRINTF
                             arch_printf("\n\r[GATT] Clock Update received: epoch=0x%08X (%u)", new_epoch, new_epoch);
+                            arch_printf("\n\r[GATT] RTC update skipped (not enabled in build)");
                         #endif
+
+                        /* RTC update disabled - to enable, add rtc.c to Keil project and uncomment */
+                        #if 0
                         {
                             rtc_time_t rtc_time;
                             rtc_calendar_t rtc_calendar;
@@ -504,6 +509,7 @@ void user_catch_rest_hndl(ke_msg_id_t const msgid,
                                 }
                             #endif
                         }
+                        #endif
                     }
                     else
                     {
