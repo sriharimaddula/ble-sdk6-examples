@@ -243,73 +243,56 @@ static void register_custom_services(void)
         arch_printf("\n\r[GATT] Registering custom services...");
     #endif
     
-    // Define service UUIDs (from user_custs1_def.h)
+    // Define service UUID (from user_custs1_def.h)
     static const uint8_t timestamp_svc_uuid[] = DEF_TSVC_UUID_128;
-    static const uint8_t update_svc_uuid[] = DEF_UPDATE_SVC_UUID_128;
+    static const uint8_t timestamp_req_uuid[] = DEF_TSVC_REQ_UUID_128;
+    static const uint8_t timestamp_resp_uuid[] = DEF_TSVC_RESP_UUID_128;
     
-    // Timestamp Service attributes
-    struct gattm_att_desc ts_atts[] = {
-        // Service declaration
-        [0] = {
-            .uuid = ATT_DECL_PRIMARY_SERVICE,
-            .perm = PERM(RD, ENABLE),
-            .max_len = 0,
-            .length = ATT_UUID_128_LEN,
-            .value = (uint8_t*)timestamp_svc_uuid
-        },
-        // Request characteristic (Write)
-        [1] = {
-            .uuid = ATT_DECL_CHARACTERISTIC,
-            .perm = PERM(RD, ENABLE),
-            .max_len = 0,
-            .length = 0,
-            .value = NULL
-        },
-        [2] = {
-            .uuid = {0x04,0x00,0x59,0x91,0xB1,0x31,0x33,0x96,0x04,0x4C,0x66,0x4C,0x94,0x67,0xB9,0x17},
-            .perm = PERM(WR, ENABLE) | PERM(WRITE_REQ, ENABLE),
-            .max_len = DEF_TSVC_REQ_CHAR_LEN,
-            .length = 0,
-            .value = NULL
-        },
-        // Response characteristic (Notify)
-        [3] = {
-            .uuid = ATT_DECL_CHARACTERISTIC,
-            .perm = PERM(RD, ENABLE),
-            .max_len = 0,
-            .length = 0,
-            .value = NULL
-        },
-        [4] = {
-            .uuid = {0x05,0x00,0x59,0x91,0xB1,0x31,0x33,0x96,0x05,0x4C,0x66,0x4C,0x95,0x67,0xB9,0x17},
-            .perm = PERM(NTF, ENABLE),
-            .max_len = DEF_TSVC_RESP_CHAR_LEN,
-            .length = 0,
-            .value = NULL
-        },
-        // CCC descriptor for notifications
-        [5] = {
-            .uuid = ATT_DESC_CLIENT_CHAR_CFG,
-            .perm = PERM(RD, ENABLE) | PERM(WR, ENABLE) | PERM(WRITE_REQ, ENABLE),
-            .max_len = sizeof(uint16_t),
-            .length = 0,
-            .value = NULL
-        }
-    };
+    // Number of attributes: 1 svc + 2 char_decl + 2 char_val + 1 ccc = 6
+    const uint8_t num_atts = 6;
     
-    // Create timestamp service request
-    struct gattm_add_svc_req *ts_req = KE_MSG_ALLOC_DYN(GATTM_ADD_SVC_REQ,
-                                                         TASK_GATTM,
-                                                         TASK_APP,
-                                                         gattm_add_svc_req,
-                                                         sizeof(ts_atts));
-    ts_req->svc_desc.start_hdl = 0; // Auto-allocate
-    ts_req->svc_desc.task_id = TASK_APP;
-    ts_req->svc_desc.perm = PERM(SVC_UUID_LEN, UUID_128);
-    ts_req->svc_desc.nb_att = sizeof(ts_atts) / sizeof(struct gattm_att_desc);
-    memcpy(ts_req->svc_desc.atts, ts_atts, sizeof(ts_atts));
+    // Create service request
+    struct gattm_add_svc_req *req = KE_MSG_ALLOC_DYN(GATTM_ADD_SVC_REQ,
+                                                      TASK_GATTM,
+                                                      TASK_APP,
+                                                      gattm_add_svc_req,
+                                                      num_atts * sizeof(struct gattm_att_desc));
     
-    ke_msg_send(ts_req);
+    req->svc_desc.start_hdl = 0; // Auto-allocate
+    req->svc_desc.task_id = TASK_APP;
+    req->svc_desc.perm = (PERM_MASK_SVC_UUID_LEN & PERM_UUID_128) | 
+                         (PERM_MASK_SVC_PRIMARY & PERM_RIGHT_ENABLE);
+    req->svc_desc.nb_att = num_atts;
+    memcpy(req->svc_desc.uuid, timestamp_svc_uuid, ATT_UUID_128_LEN);
+    
+    // Attribute 0: Service declaration (already set in svc_desc.uuid)
+    
+    // Attribute 1: Request characteristic declaration
+    memcpy(req->svc_desc.atts[1].uuid, (uint8_t[]){ATT_DECL_CHARACTERISTIC}, ATT_UUID_16_LEN);
+    req->svc_desc.atts[1].perm = PERM(RD, ENABLE);
+    req->svc_desc.atts[1].max_len = 0;
+    
+    // Attribute 2: Request characteristic value (WRITE)
+    memcpy(req->svc_desc.atts[2].uuid, timestamp_req_uuid, ATT_UUID_128_LEN);
+    req->svc_desc.atts[2].perm = PERM(WR, ENABLE) | PERM(WRITE_REQ, ENABLE);
+    req->svc_desc.atts[2].max_len = DEF_TSVC_REQ_CHAR_LEN;
+    
+    // Attribute 3: Response characteristic declaration
+    memcpy(req->svc_desc.atts[3].uuid, (uint8_t[]){ATT_DECL_CHARACTERISTIC}, ATT_UUID_16_LEN);
+    req->svc_desc.atts[3].perm = PERM(RD, ENABLE);
+    req->svc_desc.atts[3].max_len = 0;
+    
+    // Attribute 4: Response characteristic value (NOTIFY)
+    memcpy(req->svc_desc.atts[4].uuid, timestamp_resp_uuid, ATT_UUID_128_LEN);
+    req->svc_desc.atts[4].perm = PERM(NTF, ENABLE);
+    req->svc_desc.atts[4].max_len = DEF_TSVC_RESP_CHAR_LEN;
+    
+    // Attribute 5: CCC descriptor for notifications
+    memcpy(req->svc_desc.atts[5].uuid, (uint8_t[]){ATT_DESC_CLIENT_CHAR_CFG}, ATT_UUID_16_LEN);
+    req->svc_desc.atts[5].perm = PERM(RD, ENABLE) | PERM(WR, ENABLE) | PERM(WRITE_REQ, ENABLE);
+    req->svc_desc.atts[5].max_len = sizeof(uint16_t);
+    
+    ke_msg_send(req);
     
     #ifdef CFG_PRINTF
         arch_printf("\n\r[GATT] Timestamp service registration sent");
