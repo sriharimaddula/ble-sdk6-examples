@@ -34,8 +34,8 @@
  */
  
 #include "user_ble_burst_adv.h"
-#include "custs1.h"
-#include "custs1_task.h"
+#include "gattc_task.h"
+#include "prf_utils.h"
 #include "custom_profile/user_custs1_def.h"
 #include "rtc.h"
 
@@ -336,15 +336,16 @@ void notify_timestamp_chunk(void)
         for (uint8_t i = 0; i < pos; i++) arch_printf("%02X ", buf[i]);
     #endif
 
-    /* Allocate and send CUSTS1 notification request */
-    struct custs1_val_ntf_ind_req *req = KE_MSG_ALLOC_DYN(CUSTS1_VAL_NTF_REQ,
-                                                          prf_get_task_from_id(TASK_ID_CUSTS1),
-                                                          TASK_APP,
-                                                          custs1_val_ntf_ind_req,
-                                                          DEF_TSVC_RESP_CHAR_LEN);
+    /* Allocate and send GATT notification using gattc_send_evt_cmd */
+    struct gattc_send_evt_cmd *req = KE_MSG_ALLOC_DYN(GATTC_SEND_EVT_CMD,
+                                                       TASK_GATTC,
+                                                       TASK_APP,
+                                                       gattc_send_evt_cmd,
+                                                       pos);
+    req->operation = GATTC_NOTIFY;
+    req->seq_num = 0;
     req->handle = TSVC_IDX_TIMESTAMP_RESP_VAL;
     req->length = pos;
-    req->notification = true;
     memcpy(req->value, buf, pos);
     ke_msg_send(req);
 
@@ -437,9 +438,9 @@ void user_catch_rest_hndl(ke_msg_id_t const msgid,
 {
     switch(msgid)
     {
-        case CUSTS1_VAL_WRITE_IND:
+        case GATTC_WRITE_REQ_IND:
         {
-            struct custs1_val_write_ind const *msg = (struct custs1_val_write_ind const *)(param);
+            struct gattc_write_req_ind const *msg = (struct gattc_write_req_ind const *)(param);
 
             #ifdef CFG_PRINTF
                 arch_printf("\n\r[GATT] Write event received: handle=%d, length=%d", msg->handle, msg->length);
@@ -519,6 +520,15 @@ void user_catch_rest_hndl(ke_msg_id_t const msgid,
                     #endif
                     break;
             }
+
+            /* Send write confirmation */
+            struct gattc_write_cfm *cfm = KE_MSG_ALLOC(GATTC_WRITE_CFM,
+                                                       src_id,
+                                                       dest_id,
+                                                       gattc_write_cfm);
+            cfm->handle = msg->handle;
+            cfm->status = ATT_ERR_NO_ERROR;
+            ke_msg_send(cfm);
         } break;
 
         default:
