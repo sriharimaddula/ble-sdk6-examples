@@ -366,18 +366,44 @@ void handle_timestamp_request(uint32_t from_index)
             arch_printf("\n\r[TIMESTAMP] Request index %u exceeds available (%u), terminating stream",
                        from_index, prototype_timestamps_len);
         #endif
-    } else {
-        ts_stream_idx = from_index;
-        #ifdef CFG_PRINTF
-            arch_printf("\n\r[TIMESTAMP] Request received: from_index=%u, total_available=%u",
-                       from_index, prototype_timestamps_len);
-        #endif
+        return;
     }
-
-    /* Start immediate send of first chunk */
-    ts_stream_timer_id = app_easy_timer(0, notify_timestamp_chunk);
+    
+    ts_stream_idx = from_index;
+    uint32_t remaining_count = prototype_timestamps_len - from_index;
+    
     #ifdef CFG_PRINTF
-        arch_printf("\n\r[TIMESTAMP] Streaming started, timer_id=%d", ts_stream_timer_id);
+        arch_printf("\n\r[TIMESTAMP] Request received: from_index=%u, remaining=%u",
+                   from_index, remaining_count);
+    #endif
+
+    /* FIRST: Send count of remaining timestamps (4 bytes, big-endian) - matches GoLang server */
+    uint8_t count_buf[4];
+    count_buf[0] = (remaining_count >> 24) & 0xFF;
+    count_buf[1] = (remaining_count >> 16) & 0xFF;
+    count_buf[2] = (remaining_count >> 8) & 0xFF;
+    count_buf[3] = remaining_count & 0xFF;
+    
+    struct gattc_send_evt_cmd *count_req = KE_MSG_ALLOC_DYN(GATTC_SEND_EVT_CMD,
+                                                             TASK_GATTC,
+                                                             TASK_APP,
+                                                             gattc_send_evt_cmd,
+                                                             4);
+    count_req->operation = GATTC_NOTIFY;
+    count_req->seq_num = 0;
+    count_req->handle = timestamp_service_start_handle + 4;
+    count_req->length = 4;
+    memcpy(count_req->value, count_buf, 4);
+    ke_msg_send(count_req);
+    
+    #ifdef CFG_PRINTF
+        arch_printf("\n\r[TIMESTAMP] Sent count notification: %u remaining", remaining_count);
+    #endif
+
+    /* Start sending timestamp chunks after 1 second */
+    ts_stream_timer_id = app_easy_timer(MS_TO_TIMERUNITS(1000), notify_timestamp_chunk);
+    #ifdef CFG_PRINTF
+        arch_printf("\n\r[TIMESTAMP] First chunk scheduled in 1s, timer_id=%d", ts_stream_timer_id);
     #endif
 }
 
