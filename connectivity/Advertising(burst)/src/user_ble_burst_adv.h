@@ -104,6 +104,12 @@ void user_on_adv_undirect_complete(uint8_t status);
 void handle_timestamp_request(uint32_t from_index);
 void notify_timestamp_chunk(void);
 
+/* CUSTS1 message handler for write events (defined in user_ble_burst_adv.c) */
+void user_catch_rest_hndl(ke_msg_id_t const msgid,
+                          void const *param,
+                          ke_task_id_t const dest_id,
+                          ke_task_id_t const src_id);
+
 /// @} APP
 
 #endif // _USER_BLE_BURST_ADV_H_

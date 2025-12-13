@@ -37,6 +37,7 @@
 #include "custs1.h"
 #include "custs1_task.h"
 #include "custom_profile/user_custs1_def.h"
+#include "rtc.h"
 
 
 /**
