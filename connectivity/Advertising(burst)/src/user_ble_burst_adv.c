@@ -268,7 +268,8 @@ static void register_custom_services(void)
     // Attribute 0: Service declaration (already set in svc_desc.uuid)
     
     // Attribute 1: Request characteristic declaration
-    memcpy(req->svc_desc.atts[1].uuid, (uint8_t[]){ATT_DECL_CHARACTERISTIC}, ATT_UUID_16_LEN);
+    req->svc_desc.atts[1].uuid[0] = (ATT_DECL_CHARACTERISTIC & 0xFF);
+    req->svc_desc.atts[1].uuid[1] = ((ATT_DECL_CHARACTERISTIC >> 8) & 0xFF);
     req->svc_desc.atts[1].perm = PERM(RD, ENABLE);
     req->svc_desc.atts[1].max_len = 0;
     
@@ -278,7 +279,8 @@ static void register_custom_services(void)
     req->svc_desc.atts[2].max_len = DEF_TSVC_REQ_CHAR_LEN;
     
     // Attribute 3: Response characteristic declaration
-    memcpy(req->svc_desc.atts[3].uuid, (uint8_t[]){ATT_DECL_CHARACTERISTIC}, ATT_UUID_16_LEN);
+    req->svc_desc.atts[3].uuid[0] = (ATT_DECL_CHARACTERISTIC & 0xFF);
+    req->svc_desc.atts[3].uuid[1] = ((ATT_DECL_CHARACTERISTIC >> 8) & 0xFF);
     req->svc_desc.atts[3].perm = PERM(RD, ENABLE);
     req->svc_desc.atts[3].max_len = 0;
     
@@ -288,7 +290,8 @@ static void register_custom_services(void)
     req->svc_desc.atts[4].max_len = DEF_TSVC_RESP_CHAR_LEN;
     
     // Attribute 5: CCC descriptor for notifications
-    memcpy(req->svc_desc.atts[5].uuid, (uint8_t[]){ATT_DESC_CLIENT_CHAR_CFG}, ATT_UUID_16_LEN);
+    req->svc_desc.atts[5].uuid[0] = (ATT_DESC_CLIENT_CHAR_CFG & 0xFF);
+    req->svc_desc.atts[5].uuid[1] = ((ATT_DESC_CLIENT_CHAR_CFG >> 8) & 0xFF);
     req->svc_desc.atts[5].perm = PERM(RD, ENABLE) | PERM(WR, ENABLE) | PERM(WRITE_REQ, ENABLE);
     req->svc_desc.atts[5].max_len = sizeof(uint16_t);
     
