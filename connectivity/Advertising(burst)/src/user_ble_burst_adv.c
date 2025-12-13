@@ -241,12 +241,19 @@ void user_on_adv_undirect_complete(uint8_t status)
 /**
  ****************************************************************************************
  * @brief Register Handshake Service (reminders + system time).
+ * 
+ * Mobile app looks for service UUID: 0000180D-0000-1000-8000-00805f9b34fb
+ * Uses BleConstants.CONFIGURE_SERVICE_UUID
  ****************************************************************************************
  */
 static void register_handshake_service(void)
 {
     static const uint8_t handshake_svc_uuid[] = DEF_HSVC_UUID_128;
     static const uint8_t handshake_char_uuid[] = DEF_HSVC_CHAR_UUID_128;
+    
+    #ifdef CFG_PRINTF
+        arch_printf("\n\r[REGISTER] Handshake/Configure Service UUID: 0000180D-0000-1000-8000-00805f9b34fb");
+    #endif
     
     const uint8_t num_atts = 3; // 1 svc + 1 char_decl + 1 char_val
     
@@ -923,6 +930,11 @@ void user_catch_rest_hndl(ke_msg_id_t const msgid,
             uint16_t timestamp_resp_handle = timestamp_resp_service_start_handle + 2;
             uint16_t update_val_handle = update_service_start_handle + 2;
 
+            #ifdef CFG_PRINTF
+                arch_printf("\n\r[DEBUG] Write handle check: received=%d, expected_handshake=%d", 
+                           msg->handle, handshake_val_handle);
+            #endif
+
             if (msg->handle == handshake_val_handle)
             {
                 /* Handshake: mobile writes reminders + system time */
@@ -981,6 +993,10 @@ void user_catch_rest_hndl(ke_msg_id_t const msgid,
             cfm->handle = msg->handle;
             cfm->status = ATT_ERR_NO_ERROR;
             ke_msg_send(cfm);
+            
+            #ifdef CFG_PRINTF
+                arch_printf("\n\r[DEBUG] Write confirmation sent for handle %d", msg->handle);
+            #endif
         } break;
         
         case 0x0E11:  // GATTC_READ_REQ_IND (explicit hex value)
