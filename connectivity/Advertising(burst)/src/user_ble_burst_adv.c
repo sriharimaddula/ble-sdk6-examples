@@ -737,12 +737,14 @@ void notify_timestamp_chunk(void)
     ke_msg_send(req);
 
     #ifdef CFG_PRINTF
+        const uint32_t total_timestamps = 10;  // Match the constant in notify_timestamp_chunk()
         arch_printf("\n\r[NOTIFY] Notification sent, handle=%d, remaining=%u",
-                   req->handle, (prototype_timestamps_len - ts_stream_idx));
+                   req->handle, (total_timestamps - ts_stream_idx));
     #endif
 
     /* Schedule next chunk after ~1 second if there are more timestamps */
-    if (ts_stream_idx < prototype_timestamps_len) {
+    const uint32_t total_timestamps_check = 10;  // Match the constant used above
+    if (ts_stream_idx < total_timestamps_check) {
         ts_stream_timer_id = app_easy_timer(MS_TO_TIMERUNITS(1000), notify_timestamp_chunk);
         #ifdef CFG_PRINTF
             arch_printf("\n\r[NOTIFY] Next chunk scheduled in 1s, timer_id=%d", ts_stream_timer_id);
