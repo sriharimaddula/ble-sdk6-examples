@@ -91,9 +91,14 @@ static const uint32_t prototype_timestamps_len = sizeof(prototype_timestamps) / 
 static uint32_t ts_stream_idx = 0; /* next index to send */
 static timer_hnd ts_stream_timer_id __attribute__((section(".bss.")));
 
+/* GATT service handle tracking (set when service is registered) */
+static uint16_t timestamp_service_start_handle = 0;
+static uint16_t update_service_start_handle = 0;
+
 /* Forward declarations */
 void handle_timestamp_request(uint32_t from_index);
 void notify_timestamp_chunk(void);
+static void register_custom_services(void);
 
 /*
  * FUNCTION DEFINITIONS
@@ -228,6 +233,91 @@ void user_on_adv_undirect_complete(uint8_t status)
 
 /**
  ****************************************************************************************
+ * @brief Register custom GATT services dynamically
+ * Creates timestamp service and update service with proper 128-bit UUIDs
+ ****************************************************************************************
+ */
+static void register_custom_services(void)
+{
+    #ifdef CFG_PRINTF
+        arch_printf("\n\r[GATT] Registering custom services...");
+    #endif
+    
+    // Define service UUIDs (from user_custs1_def.h)
+    static const uint8_t timestamp_svc_uuid[] = DEF_TSVC_UUID_128;
+    static const uint8_t update_svc_uuid[] = DEF_UPDATE_SVC_UUID_128;
+    
+    // Timestamp Service attributes
+    struct gattm_att_desc ts_atts[] = {
+        // Service declaration
+        [0] = {
+            .uuid = ATT_DECL_PRIMARY_SERVICE,
+            .perm = PERM(RD, ENABLE),
+            .max_len = 0,
+            .length = ATT_UUID_128_LEN,
+            .value = (uint8_t*)timestamp_svc_uuid
+        },
+        // Request characteristic (Write)
+        [1] = {
+            .uuid = ATT_DECL_CHARACTERISTIC,
+            .perm = PERM(RD, ENABLE),
+            .max_len = 0,
+            .length = 0,
+            .value = NULL
+        },
+        [2] = {
+            .uuid = {0x04,0x00,0x59,0x91,0xB1,0x31,0x33,0x96,0x04,0x4C,0x66,0x4C,0x94,0x67,0xB9,0x17},
+            .perm = PERM(WR, ENABLE) | PERM(WRITE_REQ, ENABLE),
+            .max_len = DEF_TSVC_REQ_CHAR_LEN,
+            .length = 0,
+            .value = NULL
+        },
+        // Response characteristic (Notify)
+        [3] = {
+            .uuid = ATT_DECL_CHARACTERISTIC,
+            .perm = PERM(RD, ENABLE),
+            .max_len = 0,
+            .length = 0,
+            .value = NULL
+        },
+        [4] = {
+            .uuid = {0x05,0x00,0x59,0x91,0xB1,0x31,0x33,0x96,0x05,0x4C,0x66,0x4C,0x95,0x67,0xB9,0x17},
+            .perm = PERM(NTF, ENABLE),
+            .max_len = DEF_TSVC_RESP_CHAR_LEN,
+            .length = 0,
+            .value = NULL
+        },
+        // CCC descriptor for notifications
+        [5] = {
+            .uuid = ATT_DESC_CLIENT_CHAR_CFG,
+            .perm = PERM(RD, ENABLE) | PERM(WR, ENABLE) | PERM(WRITE_REQ, ENABLE),
+            .max_len = sizeof(uint16_t),
+            .length = 0,
+            .value = NULL
+        }
+    };
+    
+    // Create timestamp service request
+    struct gattm_add_svc_req *ts_req = KE_MSG_ALLOC_DYN(GATTM_ADD_SVC_REQ,
+                                                         TASK_GATTM,
+                                                         TASK_APP,
+                                                         gattm_add_svc_req,
+                                                         sizeof(ts_atts));
+    ts_req->svc_desc.start_hdl = 0; // Auto-allocate
+    ts_req->svc_desc.task_id = TASK_APP;
+    ts_req->svc_desc.perm = PERM(SVC_UUID_LEN, UUID_128);
+    ts_req->svc_desc.nb_att = sizeof(ts_atts) / sizeof(struct gattm_att_desc);
+    memcpy(ts_req->svc_desc.atts, ts_atts, sizeof(ts_atts));
+    
+    ke_msg_send(ts_req);
+    
+    #ifdef CFG_PRINTF
+        arch_printf("\n\r[GATT] Timestamp service registration sent");
+    #endif
+}
+
+/**
+ ****************************************************************************************
  * @brief Called on connection event.
  *
  * @param[in] Pointer to gapc_connection_req_ind message.
@@ -245,6 +335,9 @@ void user_on_connection(uint8_t connection_idx, struct gapc_connection_req_ind c
     {
         // Stop advertising now we are connected
 			  app_easy_gap_advertise_with_timeout_stop();  
+			  
+			  // Register custom GATT services dynamically
+			  register_custom_services();
 			  
 			  // Enable the created profiles/services
         app_prf_enable(connection_idx);
@@ -346,7 +439,7 @@ void notify_timestamp_chunk(void)
                                                        pos);
     req->operation = GATTC_NOTIFY;
     req->seq_num = 0;
-    req->handle = TSVC_IDX_TIMESTAMP_RESP_VAL;
+    req->handle = timestamp_service_start_handle + 4;  // Response characteristic value
     req->length = pos;
     memcpy(req->value, buf, pos);
     ke_msg_send(req);
@@ -445,7 +538,43 @@ void user_catch_rest_hndl(ke_msg_id_t const msgid,
 
     switch(msgid)
     {
-        case 0x0D00:  // GATTM_ADD_SVC_RSP or similar - handle as write indication
+        case GATTM_ADD_SVC_RSP:
+        {
+            struct gattm_add_svc_rsp const *rsp = (struct gattm_add_svc_rsp const *)(param);
+            
+            #ifdef CFG_PRINTF
+                arch_printf("\n\r[GATT] Service added: start_handle=%d, status=0x%02X", rsp->start_hdl, rsp->status);
+            #endif
+            
+            if (rsp->status == ATT_ERR_NO_ERROR)
+            {
+                // Store the start handle - we'll use this to calculate char handles
+                // First service added is timestamp service (6 attributes)
+                // Second would be update service
+                if (timestamp_service_start_handle == 0)
+                {
+                    timestamp_service_start_handle = rsp->start_hdl;
+                    #ifdef CFG_PRINTF
+                        arch_printf("\n\r[GATT] Timestamp service registered at handle %d", timestamp_service_start_handle);
+                    #endif
+                }
+                else if (update_service_start_handle == 0)
+                {
+                    update_service_start_handle = rsp->start_hdl;
+                    #ifdef CFG_PRINTF
+                        arch_printf("\n\r[GATT] Update service registered at handle %d", update_service_start_handle);
+                    #endif
+                }
+            }
+            else
+            {
+                #ifdef CFG_PRINTF
+                    arch_printf("\n\r[GATT] ERROR: Service registration failed!");
+                #endif
+            }
+        } break;
+        
+        case 0x0D00:  // Legacy case - remove after testing
         case GATTC_WRITE_REQ_IND:
         {
             struct gattc_write_req_ind const *msg = (struct gattc_write_req_ind const *)(param);
@@ -454,84 +583,85 @@ void user_catch_rest_hndl(ke_msg_id_t const msgid,
                 arch_printf("\n\r[GATT] Write event received: handle=%d, length=%d", msg->handle, msg->length);
             #endif
 
-            switch (msg->handle)
+            // Calculate actual characteristic handles from service start handle
+            // Timestamp service: [0]=svc, [1]=char_decl, [2]=req_val, [3]=char_decl, [4]=resp_val, [5]=ccc
+            uint16_t timestamp_req_handle = timestamp_service_start_handle + 2;
+            uint16_t update_val_handle = update_service_start_handle + 2; // When we add update service
+
+            if (msg->handle == timestamp_req_handle)
             {
-                case TSVC_IDX_TIMESTAMP_REQ_VAL:
+                /* Timestamp Request: mobile requests timestamp stream from a specific index.
+                   Expect 4-byte big-endian index (matches GoLangServer protocol) */
+                if (msg->length >= 4)
                 {
-                    /* Timestamp Request: mobile requests timestamp stream from a specific index.
-                       Expect 4-byte big-endian index (matches GoLangServer protocol) */
-                    if (msg->length >= 4)
-                    {
-                        uint32_t from_index = ((uint32_t)msg->value[0] << 24) |
-                                              ((uint32_t)msg->value[1] << 16) |
-                                              ((uint32_t)msg->value[2] << 8)  |
-                                              ((uint32_t)msg->value[3]);
-                        #ifdef CFG_PRINTF
-                            arch_printf("\n\r[GATT] Timestamp Request: index=0x%08X (%u)", from_index, from_index);
-                        #endif
-                        handle_timestamp_request(from_index);
-                    }
-                    else
-                    {
-                        #ifdef CFG_PRINTF
-                            arch_printf("\n\r[GATT] ERROR: Timestamp Request too short (%d bytes, expected 4)",
-                                       msg->length);
-                        #endif
-                    }
-                } break;
-
-                case USVC_IDX_UPDATE_VAL:
-                {
-                    /* Clock Update: mobile sends a 4-byte big-endian epoch/clock time.
-                       Device should update internal RTC with this value (implementation pending).
-                       Matches GoLangServer protocol. */
-                    if (msg->length >= 4)
-                    {
-                        uint32_t new_epoch = ((uint32_t)msg->value[0] << 24) |
-                                              ((uint32_t)msg->value[1] << 16) |
-                                              ((uint32_t)msg->value[2] << 8)  |
-                                              ((uint32_t)msg->value[3]);
-                        #ifdef CFG_PRINTF
-                            arch_printf("\n\r[GATT] Clock Update received: epoch=0x%08X (%u)", new_epoch, new_epoch);
-                            arch_printf("\n\r[GATT] RTC update skipped (not enabled in build)");
-                        #endif
-
-                        /* RTC update disabled - to enable, add rtc.c to Keil project and uncomment */
-                        #if 0
-                        {
-                            rtc_time_t rtc_time;
-                            rtc_calendar_t rtc_calendar;
-
-                            /* Convert epoch -> rtc structures (UTC) */
-                            epoch_to_rtc(new_epoch, &rtc_time, &rtc_calendar);
-
-                            /* Attempt to set RTC calendar/time */
-                            rtc_status_code_t status = rtc_set_time_clndr(&rtc_time, &rtc_calendar);
-
-                            #ifdef CFG_PRINTF
-                                if (status == RTC_STATUS_CODE_VALID_ENTRY) {
-                                    arch_printf("\n\r[GATT] RTC updated successfully\n");
-                                } else {
-                                    arch_printf("\n\r[GATT] RTC update failed, status=%d\n", (int)status);
-                                }
-                            #endif
-                        }
-                        #endif
-                    }
-                    else
-                    {
-                        #ifdef CFG_PRINTF
-                            arch_printf("\n\r[GATT] ERROR: Clock Update too short (%d bytes, expected 4)",
-                                       msg->length);
-                        #endif
-                    }
-                } break;
-
-                default:
+                    uint32_t from_index = ((uint32_t)msg->value[0] << 24) |
+                                          ((uint32_t)msg->value[1] << 16) |
+                                          ((uint32_t)msg->value[2] << 8)  |
+                                          ((uint32_t)msg->value[3]);
                     #ifdef CFG_PRINTF
-                        arch_printf("\n\r[GATT] WARNING: Write to unknown handle %d", msg->handle);
+                        arch_printf("\n\r[GATT] Timestamp Request: index=0x%08X (%u)", from_index, from_index);
                     #endif
-                    break;
+                    handle_timestamp_request(from_index);
+                }
+                else
+                {
+                    #ifdef CFG_PRINTF
+                        arch_printf("\n\r[GATT] ERROR: Timestamp Request too short (%d bytes, expected 4)",
+                                   msg->length);
+                    #endif
+                }
+            }
+            else if (update_service_start_handle && msg->handle == update_val_handle)
+            {
+                /* Clock Update: mobile sends a 4-byte big-endian epoch/clock time.
+                   Device should update internal RTC with this value (implementation pending).
+                   Matches GoLangServer protocol. */
+                if (msg->length >= 4)
+                {
+                    uint32_t new_epoch = ((uint32_t)msg->value[0] << 24) |
+                                          ((uint32_t)msg->value[1] << 16) |
+                                          ((uint32_t)msg->value[2] << 8)  |
+                                          ((uint32_t)msg->value[3]);
+                    #ifdef CFG_PRINTF
+                        arch_printf("\n\r[GATT] Clock Update received: epoch=0x%08X (%u)", new_epoch, new_epoch);
+                        arch_printf("\n\r[GATT] RTC update skipped (not enabled in build)");
+                    #endif
+
+                    /* RTC update disabled - to enable, add rtc.c to Keil project and uncomment */
+                    #if 0
+                    {
+                        rtc_time_t rtc_time;
+                        rtc_calendar_t rtc_calendar;
+
+                        /* Convert epoch -> rtc structures (UTC) */
+                        epoch_to_rtc(new_epoch, &rtc_time, &rtc_calendar);
+
+                        /* Attempt to set RTC calendar/time */
+                        rtc_status_code_t status = rtc_set_time_clndr(&rtc_time, &rtc_calendar);
+
+                        #ifdef CFG_PRINTF
+                            if (status == RTC_STATUS_CODE_VALID_ENTRY) {
+                                arch_printf("\n\r[GATT] RTC updated successfully\n");
+                            } else {
+                                arch_printf("\n\r[GATT] RTC update failed, status=%d\n", (int)status);
+                            }
+                        #endif
+                    }
+                    #endif
+                }
+                else
+                {
+                    #ifdef CFG_PRINTF
+                        arch_printf("\n\r[GATT] ERROR: Clock Update too short (%d bytes, expected 4)",
+                                   msg->length);
+                    #endif
+                }
+            }
+            else
+            {
+                #ifdef CFG_PRINTF
+                    arch_printf("\n\r[GATT] WARNING: Write to unknown handle %d", msg->handle);
+                #endif
             }
 
             /* Send write confirmation */
