@@ -1430,6 +1430,7 @@
           </Files>
         </Group>
         <Group>
+        <Group>
           <GroupName>custom_profile</GroupName>
           <Files>
             <File>
@@ -1444,7 +1445,6 @@
             </File>
           </Files>
         </Group>
-        <Group>
           <GroupName>user_app</GroupName>
           <Files>
             <File>
@@ -4243,6 +4243,7 @@
           </Files>
         </Group>
         <Group>
+        <Group>
           <GroupName>custom_profile</GroupName>
           <Files>
             <File>
@@ -4257,19 +4258,12 @@
             </File>
           </Files>
         </Group>
-        <Group>
           <GroupName>user_app</GroupName>
           <Files>
             <File>
               <FileName>user_ble_burst_adv.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\src\user_ble_burst_adv.c</FilePath>
-            </File>
-          </Files>
-        </Group>
-      </Groups>
-    </Target>
-    <Target>
       <ToolsetNumber>0x4</ToolsetNumber>
       <ToolsetName>ARM-ADS</ToolsetName>
       <pCCUsed>6210000::V6.21::ARMCLANG</pCCUsed>
@@ -5605,6 +5599,7 @@
           </Files>
         </Group>
         <Group>
+        <Group>
           <GroupName>custom_profile</GroupName>
           <Files>
             <File>
@@ -5619,19 +5614,12 @@
             </File>
           </Files>
         </Group>
-        <Group>
           <GroupName>user_app</GroupName>
           <Files>
             <File>
               <FileName>user_ble_burst_adv.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\src\user_ble_burst_adv.c</FilePath>
-            </File>
-          </Files>
-        </Group>
-      </Groups>
-    </Target>
-    <Target>
       <ToolsetNumber>0x4</ToolsetNumber>
       <ToolsetName>ARM-ADS</ToolsetName>
       <pCCUsed>6210000::V6.21::ARMCLANG</pCCUsed>
