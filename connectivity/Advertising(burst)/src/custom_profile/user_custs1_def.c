@@ -30,6 +30,13 @@ static const att_svc_desc128_t usvc_svc = DEF_UPDATE_SVC_UUID_128;
 static const uint8_t USVC_UPDATE_UUID_128[ATT_UUID_128_LEN] = DEF_UPDATE_CHAR_UUID_128;
 
 /* Services list and sizes */
+/* NOTE: Custom profile database disabled - using direct GATT messaging instead.
+ * These definitions are kept for reference but not used at runtime. We handle
+ * GATT operations directly using GATTC_WRITE_REQ_IND and GATTC_SEND_EVT_CMD.
+ * The attribute handles (TSVC_IDX_*) are still used to identify characteristics.
+ */
+
+#if 0  /* Disabled - not using attm_db profile system */
 const uint8_t custs1_services[]  = {TSVC_IDX_SVC, USVC_IDX_SVC, CUSTS1_IDX_NB};
 const uint8_t custs1_services_size = ARRAY_LEN(custs1_services) - 1;
 const uint16_t custs1_att_max_nb = CUSTS1_IDX_NB;
@@ -79,3 +86,4 @@ const struct attm_desc_128 custs1_att_db[CUSTS1_IDX_NB] =
     [USVC_IDX_UPDATE_USER_DESC] = {(uint8_t*)&att_desc_user_desc, ATT_UUID_16_LEN, PERM(RD, ENABLE),
                                    sizeof("Update") - 1, sizeof("Update") - 1, (uint8_t *) "Update"},
 };
+#endif  /* Disabled */
