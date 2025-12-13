@@ -96,7 +96,8 @@ static timer_hnd ts_stream_timer_id __attribute__((section(".bss.")));
 
 /* GATT service handle tracking (set when service is registered) */
 static uint16_t handshake_service_start_handle = 0;
-static uint16_t timestamp_service_start_handle = 0;
+static uint16_t timestamp_req_service_start_handle = 0;
+static uint16_t timestamp_resp_service_start_handle = 0;
 static uint16_t update_service_start_handle = 0;
 
 /* Forward declarations */
@@ -282,16 +283,15 @@ static void register_handshake_service(void)
 
 /**
  ****************************************************************************************
- * @brief Register Timestamp Request/Response Service.
+ * @brief Register Timestamp Request Service (WRITE characteristic).
  ****************************************************************************************
  */
-static void register_timestamp_service(void)
+static void register_timestamp_request_service(void)
 {
-    static const uint8_t timestamp_svc_uuid[] = DEF_TSVC_UUID_128;
-    static const uint8_t timestamp_req_uuid[] = DEF_TSVC_REQ_UUID_128;
-    static const uint8_t timestamp_resp_uuid[] = DEF_TSVC_RESP_UUID_128;
+    static const uint8_t timestamp_req_svc_uuid[] = DEF_TSVC_UUID_128;  // ...590001
+    static const uint8_t timestamp_req_char_uuid[] = DEF_TSVC_REQ_UUID_128;
     
-    const uint8_t num_atts = 6; // 1 svc + 2 char_decl + 2 char_val + 1 ccc
+    const uint8_t num_atts = 3; // 1 svc + 1 char_decl + 1 char_val
     
     struct gattm_add_svc_req *req = KE_MSG_ALLOC_DYN(GATTM_ADD_SVC_REQ,
                                                       TASK_GATTM,
@@ -304,7 +304,7 @@ static void register_timestamp_service(void)
     req->svc_desc.perm = (PERM_MASK_SVC_UUID_LEN & PERM_UUID_128) | 
                          (PERM_MASK_SVC_PRIMARY & PERM_RIGHT_ENABLE);
     req->svc_desc.nb_att = num_atts;
-    memcpy(req->svc_desc.uuid, timestamp_svc_uuid, ATT_UUID_128_LEN);
+    memcpy(req->svc_desc.uuid, timestamp_req_svc_uuid, ATT_UUID_128_LEN);
     
     // Attribute 1: Request characteristic declaration
     req->svc_desc.atts[1].uuid[0] = (ATT_DECL_CHARACTERISTIC & 0xFF);
@@ -313,31 +313,63 @@ static void register_timestamp_service(void)
     req->svc_desc.atts[1].max_len = 0;
     
     // Attribute 2: Request characteristic value (WRITE)
-    memcpy(req->svc_desc.atts[2].uuid, timestamp_req_uuid, ATT_UUID_128_LEN);
+    memcpy(req->svc_desc.atts[2].uuid, timestamp_req_char_uuid, ATT_UUID_128_LEN);
     req->svc_desc.atts[2].perm = PERM(WR, ENABLE) | PERM(WRITE_REQ, ENABLE);
     req->svc_desc.atts[2].max_len = DEF_TSVC_REQ_CHAR_LEN;
-    
-    // Attribute 3: Response characteristic declaration
-    req->svc_desc.atts[3].uuid[0] = (ATT_DECL_CHARACTERISTIC & 0xFF);
-    req->svc_desc.atts[3].uuid[1] = ((ATT_DECL_CHARACTERISTIC >> 8) & 0xFF);
-    req->svc_desc.atts[3].perm = PERM(RD, ENABLE);
-    req->svc_desc.atts[3].max_len = 0;
-    
-    // Attribute 4: Response characteristic value (NOTIFY)
-    memcpy(req->svc_desc.atts[4].uuid, timestamp_resp_uuid, ATT_UUID_128_LEN);
-    req->svc_desc.atts[4].perm = PERM(NTF, ENABLE);
-    req->svc_desc.atts[4].max_len = DEF_TSVC_RESP_CHAR_LEN;
-    
-    // Attribute 5: CCC descriptor for notifications
-    req->svc_desc.atts[5].uuid[0] = (ATT_DESC_CLIENT_CHAR_CFG & 0xFF);
-    req->svc_desc.atts[5].uuid[1] = ((ATT_DESC_CLIENT_CHAR_CFG >> 8) & 0xFF);
-    req->svc_desc.atts[5].perm = PERM(RD, ENABLE) | PERM(WR, ENABLE) | PERM(WRITE_REQ, ENABLE);
-    req->svc_desc.atts[5].max_len = sizeof(uint16_t);
     
     ke_msg_send(req);
     
     #ifdef CFG_PRINTF
-        arch_printf("\n\r[GATT] Timestamp service registration sent");
+        arch_printf("\n\r[GATT] Timestamp REQUEST service registration sent");
+    #endif
+}
+
+/**
+ ****************************************************************************************
+ * @brief Register Timestamp Response Service (NOTIFY characteristic).
+ ****************************************************************************************
+ */
+static void register_timestamp_response_service(void)
+{
+    static const uint8_t timestamp_resp_svc_uuid[] = DEF_TSVC_RESP_SVC_UUID_128;  // ...590002
+    static const uint8_t timestamp_resp_char_uuid[] = DEF_TSVC_RESP_UUID_128;
+    
+    const uint8_t num_atts = 3; // 1 svc + 1 char_decl + 1 char_val + 1 ccc = 4
+    
+    struct gattm_add_svc_req *req = KE_MSG_ALLOC_DYN(GATTM_ADD_SVC_REQ,
+                                                      TASK_GATTM,
+                                                      TASK_APP,
+                                                      gattm_add_svc_req,
+                                                      4 * sizeof(struct gattm_att_desc));
+    
+    req->svc_desc.start_hdl = 0;
+    req->svc_desc.task_id = TASK_APP;
+    req->svc_desc.perm = (PERM_MASK_SVC_UUID_LEN & PERM_UUID_128) | 
+                         (PERM_MASK_SVC_PRIMARY & PERM_RIGHT_ENABLE);
+    req->svc_desc.nb_att = 4;
+    memcpy(req->svc_desc.uuid, timestamp_resp_svc_uuid, ATT_UUID_128_LEN);
+    
+    // Attribute 1: Response characteristic declaration
+    req->svc_desc.atts[1].uuid[0] = (ATT_DECL_CHARACTERISTIC & 0xFF);
+    req->svc_desc.atts[1].uuid[1] = ((ATT_DECL_CHARACTERISTIC >> 8) & 0xFF);
+    req->svc_desc.atts[1].perm = PERM(RD, ENABLE);
+    req->svc_desc.atts[1].max_len = 0;
+    
+    // Attribute 2: Response characteristic value (NOTIFY)
+    memcpy(req->svc_desc.atts[2].uuid, timestamp_resp_char_uuid, ATT_UUID_128_LEN);
+    req->svc_desc.atts[2].perm = PERM(NTF, ENABLE);
+    req->svc_desc.atts[2].max_len = DEF_TSVC_RESP_CHAR_LEN;
+    
+    // Attribute 3: CCC descriptor for notifications
+    req->svc_desc.atts[3].uuid[0] = (ATT_DESC_CLIENT_CHAR_CFG & 0xFF);
+    req->svc_desc.atts[3].uuid[1] = ((ATT_DESC_CLIENT_CHAR_CFG >> 8) & 0xFF);
+    req->svc_desc.atts[3].perm = PERM(RD, ENABLE) | PERM(WR, ENABLE) | PERM(WRITE_REQ, ENABLE);
+    req->svc_desc.atts[3].max_len = sizeof(uint16_t);
+    
+    ke_msg_send(req);
+    
+    #ifdef CFG_PRINTF
+        arch_printf("\n\r[GATT] Timestamp RESPONSE service registration sent");
     #endif
 }
 
@@ -396,7 +428,8 @@ static void register_custom_services(void)
     #endif
     
     register_handshake_service();
-    register_timestamp_service();
+    register_timestamp_request_service();
+    register_timestamp_response_service();
     register_update_service();
 }
 
@@ -634,7 +667,7 @@ void handle_timestamp_request(uint32_t from_index)
                                                              4);
     count_req->operation = GATTC_NOTIFY;
     count_req->seq_num = 0;
-    count_req->handle = timestamp_service_start_handle + 4;
+    count_req->handle = timestamp_resp_service_start_handle + 2;  // Response service notify char
     count_req->length = 4;
     memcpy(count_req->value, count_buf, 4);
     ke_msg_send(count_req);
@@ -694,7 +727,7 @@ void notify_timestamp_chunk(void)
                                                        pos);
     req->operation = GATTC_NOTIFY;
     req->seq_num = 0;
-    req->handle = timestamp_service_start_handle + 4;  // Response characteristic value
+    req->handle = timestamp_resp_service_start_handle + 2;  // Response service notify char
     req->length = pos;
     memcpy(req->value, buf, pos);
     ke_msg_send(req);
@@ -792,10 +825,12 @@ void user_catch_rest_hndl(ke_msg_id_t const msgid,
         
         // Debug: Show which service handles are active
         static bool once = false;
-        if (!once && handshake_service_start_handle && timestamp_service_start_handle && update_service_start_handle)
+        if (!once && handshake_service_start_handle && timestamp_req_service_start_handle && 
+            timestamp_resp_service_start_handle && update_service_start_handle)
         {
             arch_printf("\n\r[DEBUG] Handshake write handle: %d", handshake_service_start_handle + 2);
-            arch_printf("\n\r[DEBUG] Timestamp write handle: %d", timestamp_service_start_handle + 2);
+            arch_printf("\n\r[DEBUG] Timestamp REQUEST write handle: %d", timestamp_req_service_start_handle + 2);
+            arch_printf("\n\r[DEBUG] Timestamp RESPONSE notify handle: %d", timestamp_resp_service_start_handle + 2);
             arch_printf("\n\r[DEBUG] Update write handle: %d", update_service_start_handle + 2);
             once = true;
         }
@@ -813,7 +848,7 @@ void user_catch_rest_hndl(ke_msg_id_t const msgid,
             
             if (rsp->status == ATT_ERR_NO_ERROR)
             {
-                // Store service handles in order: handshake, timestamp, update
+                // Store service handles in order: handshake, timestamp_req, timestamp_resp, update
                 if (handshake_service_start_handle == 0)
                 {
                     handshake_service_start_handle = rsp->start_hdl;
@@ -821,11 +856,18 @@ void user_catch_rest_hndl(ke_msg_id_t const msgid,
                         arch_printf("\n\r[GATT] Handshake service registered at handle %d", handshake_service_start_handle);
                     #endif
                 }
-                else if (timestamp_service_start_handle == 0)
+                else if (timestamp_req_service_start_handle == 0)
                 {
-                    timestamp_service_start_handle = rsp->start_hdl;
+                    timestamp_req_service_start_handle = rsp->start_hdl;
                     #ifdef CFG_PRINTF
-                        arch_printf("\n\r[GATT] Timestamp service registered at handle %d", timestamp_service_start_handle);
+                        arch_printf("\n\r[GATT] Timestamp REQUEST service registered at handle %d", timestamp_req_service_start_handle);
+                    #endif
+                }
+                else if (timestamp_resp_service_start_handle == 0)
+                {
+                    timestamp_resp_service_start_handle = rsp->start_hdl;
+                    #ifdef CFG_PRINTF
+                        arch_printf("\n\r[GATT] Timestamp RESPONSE service registered at handle %d", timestamp_resp_service_start_handle);
                     #endif
                 }
                 else if (update_service_start_handle == 0)
@@ -853,7 +895,8 @@ void user_catch_rest_hndl(ke_msg_id_t const msgid,
             #endif
 
             // Ignore writes if services not yet registered (spurious messages during connection)
-            if (!handshake_service_start_handle || !timestamp_service_start_handle || !update_service_start_handle)
+            if (!handshake_service_start_handle || !timestamp_req_service_start_handle || 
+                !timestamp_resp_service_start_handle || !update_service_start_handle)
             {
                 #ifdef CFG_PRINTF
                     arch_printf("\n\r[GATT] WARNING: Write received before services registered, ignoring");
@@ -872,10 +915,12 @@ void user_catch_rest_hndl(ke_msg_id_t const msgid,
 
             // Calculate actual characteristic handles from service start handles
             // Handshake service: [0]=svc, [1]=char_decl, [2]=val
-            // Timestamp service: [0]=svc, [1]=char_decl, [2]=req_val, [3]=char_decl, [4]=resp_val, [5]=ccc
+            // Timestamp REQUEST service: [0]=svc, [1]=char_decl, [2]=val
+            // Timestamp RESPONSE service: [0]=svc, [1]=char_decl, [2]=val, [3]=ccc
             // Update service: [0]=svc, [1]=char_decl, [2]=val
             uint16_t handshake_val_handle = handshake_service_start_handle + 2;
-            uint16_t timestamp_req_handle = timestamp_service_start_handle + 2;
+            uint16_t timestamp_req_handle = timestamp_req_service_start_handle + 2;
+            uint16_t timestamp_resp_handle = timestamp_resp_service_start_handle + 2;
             uint16_t update_val_handle = update_service_start_handle + 2;
 
             if (msg->handle == handshake_val_handle)
@@ -938,6 +983,7 @@ void user_catch_rest_hndl(ke_msg_id_t const msgid,
             ke_msg_send(cfm);
         } break;
         
+        case 0x0E11:  // GATTC_READ_REQ_IND (explicit hex value)
         case GATTC_READ_REQ_IND:
         {
             // Read requests during service discovery - send empty response
