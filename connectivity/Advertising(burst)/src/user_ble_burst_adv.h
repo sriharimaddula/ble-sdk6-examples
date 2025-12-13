@@ -98,13 +98,13 @@ void user_on_disconnect(struct gapc_disconnect_ind const *param);
 void user_on_set_dev_config_complete(void);
 void user_on_adv_undirect_complete(uint8_t status);
 
-/* Prototype handlers for timestamp requests/notify streaming (implemented in .c)
-    - `from_index` is the requested start index for timestamps (uint32_t)
-*/
+/* Protocol handlers (BLE Droptor Protocol) */
+void handle_handshake_write(const uint8_t *data, uint16_t length);
 void handle_timestamp_request(uint32_t from_index);
+void handle_update_write(const uint8_t *data, uint16_t length);
 void notify_timestamp_chunk(void);
 
-/* CUSTS1 message handler for write events (defined in user_ble_burst_adv.c) */
+/* GATT message handler */
 void user_catch_rest_hndl(ke_msg_id_t const msgid,
                           void const *param,
                           ke_task_id_t const dest_id,

@@ -87,16 +87,22 @@ static const uint32_t prototype_timestamps[] = {
 };
 static const uint32_t prototype_timestamps_len = sizeof(prototype_timestamps) / sizeof(prototype_timestamps[0]);
 
+/* Device state storage (reminders, system time) */
+static device_state_t device_state __attribute__((section(".bss."))) = {0};
+
 /* Streaming state for timestamp notifications */
 static uint32_t ts_stream_idx = 0; /* next index to send */
 static timer_hnd ts_stream_timer_id __attribute__((section(".bss.")));
 
 /* GATT service handle tracking (set when service is registered) */
+static uint16_t handshake_service_start_handle = 0;
 static uint16_t timestamp_service_start_handle = 0;
 static uint16_t update_service_start_handle = 0;
 
 /* Forward declarations */
+void handle_handshake_write(const uint8_t *data, uint16_t length);
 void handle_timestamp_request(uint32_t from_index);
+void handle_update_write(const uint8_t *data, uint16_t length);
 void notify_timestamp_chunk(void);
 static void register_custom_services(void);
 
@@ -233,39 +239,72 @@ void user_on_adv_undirect_complete(uint8_t status)
 
 /**
  ****************************************************************************************
- * @brief Register custom GATT services dynamically
- * Creates timestamp service and update service with proper 128-bit UUIDs
+ * @brief Register Handshake Service (reminders + system time).
  ****************************************************************************************
  */
-static void register_custom_services(void)
+static void register_handshake_service(void)
 {
-    #ifdef CFG_PRINTF
-        arch_printf("\n\r[GATT] Registering custom services...");
-    #endif
+    static const uint8_t handshake_svc_uuid[] = DEF_HSVC_UUID_128;
+    static const uint8_t handshake_char_uuid[] = DEF_HSVC_CHAR_UUID_128;
     
-    // Define service UUID (from user_custs1_def.h)
-    static const uint8_t timestamp_svc_uuid[] = DEF_TSVC_UUID_128;
-    static const uint8_t timestamp_req_uuid[] = DEF_TSVC_REQ_UUID_128;
-    static const uint8_t timestamp_resp_uuid[] = DEF_TSVC_RESP_UUID_128;
+    const uint8_t num_atts = 3; // 1 svc + 1 char_decl + 1 char_val
     
-    // Number of attributes: 1 svc + 2 char_decl + 2 char_val + 1 ccc = 6
-    const uint8_t num_atts = 6;
-    
-    // Create service request
     struct gattm_add_svc_req *req = KE_MSG_ALLOC_DYN(GATTM_ADD_SVC_REQ,
                                                       TASK_GATTM,
                                                       TASK_APP,
                                                       gattm_add_svc_req,
                                                       num_atts * sizeof(struct gattm_att_desc));
     
-    req->svc_desc.start_hdl = 0; // Auto-allocate
+    req->svc_desc.start_hdl = 0;
+    req->svc_desc.task_id = TASK_APP;
+    req->svc_desc.perm = (PERM_MASK_SVC_UUID_LEN & PERM_UUID_128) | 
+                         (PERM_MASK_SVC_PRIMARY & PERM_RIGHT_ENABLE);
+    req->svc_desc.nb_att = num_atts;
+    memcpy(req->svc_desc.uuid, handshake_svc_uuid, ATT_UUID_128_LEN);
+    
+    // Attribute 1: Characteristic declaration
+    req->svc_desc.atts[1].uuid[0] = (ATT_DECL_CHARACTERISTIC & 0xFF);
+    req->svc_desc.atts[1].uuid[1] = ((ATT_DECL_CHARACTERISTIC >> 8) & 0xFF);
+    req->svc_desc.atts[1].perm = PERM(RD, ENABLE);
+    req->svc_desc.atts[1].max_len = 0;
+    
+    // Attribute 2: Characteristic value (WRITE)
+    memcpy(req->svc_desc.atts[2].uuid, handshake_char_uuid, ATT_UUID_128_LEN);
+    req->svc_desc.atts[2].perm = PERM(WR, ENABLE) | PERM(WRITE_REQ, ENABLE);
+    req->svc_desc.atts[2].max_len = DEF_HSVC_CHAR_LEN;
+    
+    ke_msg_send(req);
+    
+    #ifdef CFG_PRINTF
+        arch_printf("\n\r[GATT] Handshake service registration sent");
+    #endif
+}
+
+/**
+ ****************************************************************************************
+ * @brief Register Timestamp Request/Response Service.
+ ****************************************************************************************
+ */
+static void register_timestamp_service(void)
+{
+    static const uint8_t timestamp_svc_uuid[] = DEF_TSVC_UUID_128;
+    static const uint8_t timestamp_req_uuid[] = DEF_TSVC_REQ_UUID_128;
+    static const uint8_t timestamp_resp_uuid[] = DEF_TSVC_RESP_UUID_128;
+    
+    const uint8_t num_atts = 6; // 1 svc + 2 char_decl + 2 char_val + 1 ccc
+    
+    struct gattm_add_svc_req *req = KE_MSG_ALLOC_DYN(GATTM_ADD_SVC_REQ,
+                                                      TASK_GATTM,
+                                                      TASK_APP,
+                                                      gattm_add_svc_req,
+                                                      num_atts * sizeof(struct gattm_att_desc));
+    
+    req->svc_desc.start_hdl = 0;
     req->svc_desc.task_id = TASK_APP;
     req->svc_desc.perm = (PERM_MASK_SVC_UUID_LEN & PERM_UUID_128) | 
                          (PERM_MASK_SVC_PRIMARY & PERM_RIGHT_ENABLE);
     req->svc_desc.nb_att = num_atts;
     memcpy(req->svc_desc.uuid, timestamp_svc_uuid, ATT_UUID_128_LEN);
-    
-    // Attribute 0: Service declaration (already set in svc_desc.uuid)
     
     // Attribute 1: Request characteristic declaration
     req->svc_desc.atts[1].uuid[0] = (ATT_DECL_CHARACTERISTIC & 0xFF);
@@ -300,6 +339,65 @@ static void register_custom_services(void)
     #ifdef CFG_PRINTF
         arch_printf("\n\r[GATT] Timestamp service registration sent");
     #endif
+}
+
+/**
+ ****************************************************************************************
+ * @brief Register Update Service (clock update).
+ ****************************************************************************************
+ */
+static void register_update_service(void)
+{
+    static const uint8_t update_svc_uuid[] = DEF_UPDATE_SVC_UUID_128;
+    static const uint8_t update_char_uuid[] = DEF_UPDATE_CHAR_UUID_128;
+    
+    const uint8_t num_atts = 3; // 1 svc + 1 char_decl + 1 char_val
+    
+    struct gattm_add_svc_req *req = KE_MSG_ALLOC_DYN(GATTM_ADD_SVC_REQ,
+                                                      TASK_GATTM,
+                                                      TASK_APP,
+                                                      gattm_add_svc_req,
+                                                      num_atts * sizeof(struct gattm_att_desc));
+    
+    req->svc_desc.start_hdl = 0;
+    req->svc_desc.task_id = TASK_APP;
+    req->svc_desc.perm = (PERM_MASK_SVC_UUID_LEN & PERM_UUID_128) | 
+                         (PERM_MASK_SVC_PRIMARY & PERM_RIGHT_ENABLE);
+    req->svc_desc.nb_att = num_atts;
+    memcpy(req->svc_desc.uuid, update_svc_uuid, ATT_UUID_128_LEN);
+    
+    // Attribute 1: Characteristic declaration
+    req->svc_desc.atts[1].uuid[0] = (ATT_DECL_CHARACTERISTIC & 0xFF);
+    req->svc_desc.atts[1].uuid[1] = ((ATT_DECL_CHARACTERISTIC >> 8) & 0xFF);
+    req->svc_desc.atts[1].perm = PERM(RD, ENABLE);
+    req->svc_desc.atts[1].max_len = 0;
+    
+    // Attribute 2: Characteristic value (WRITE)
+    memcpy(req->svc_desc.atts[2].uuid, update_char_uuid, ATT_UUID_128_LEN);
+    req->svc_desc.atts[2].perm = PERM(WR, ENABLE) | PERM(WRITE_REQ, ENABLE);
+    req->svc_desc.atts[2].max_len = DEF_UPDATE_CHAR_LEN;
+    
+    ke_msg_send(req);
+    
+    #ifdef CFG_PRINTF
+        arch_printf("\n\r[GATT] Update service registration sent");
+    #endif
+}
+
+/**
+ ****************************************************************************************
+ * @brief Register all custom GATT services dynamically.
+ ****************************************************************************************
+ */
+static void register_custom_services(void)
+{
+    #ifdef CFG_PRINTF
+        arch_printf("\n\r[GATT] Registering custom services...");
+    #endif
+    
+    register_handshake_service();
+    register_timestamp_service();
+    register_update_service();
 }
 
 /**
@@ -352,6 +450,151 @@ void user_on_disconnect(struct gapc_disconnect_ind const *param)
 
   	/* Restart burst advertising */
 	  start_advertising();
+}
+
+/*
+ * GATT Write Handlers
+ */
+
+/**
+ ****************************************************************************************
+ * @brief Handle handshake write (reminders + system time)
+ * 
+ * Protocol (from protocol doc):
+ *   First packet (8 bytes):  [UInt32 BE reminder_count][UInt32 BE system_time]
+ *   Rest packets (20 bytes): [UInt32 BE...] timestamps (max 5 per packet)
+ ****************************************************************************************
+ */
+void handle_handshake_write(const uint8_t *data, uint16_t length)
+{
+    static uint32_t expected_reminder_count = 0;
+    static uint32_t reminders_received = 0;
+    static bool first_packet = true;
+    
+    #ifdef CFG_PRINTF
+        arch_printf("\n\r[HANDSHAKE] Received %d bytes (first_packet=%d)", length, first_packet);
+    #endif
+    
+    if (first_packet && length >= 8)
+    {
+        // First packet: extract reminder count and system time
+        expected_reminder_count = ((uint32_t)data[0] << 24) |
+                                   ((uint32_t)data[1] << 16) |
+                                   ((uint32_t)data[2] << 8)  |
+                                   ((uint32_t)data[3]);
+        
+        device_state.system_time = ((uint32_t)data[4] << 24) |
+                                    ((uint32_t)data[5] << 16) |
+                                    ((uint32_t)data[6] << 8)  |
+                                    ((uint32_t)data[7]);
+        
+        #ifdef CFG_PRINTF
+            arch_printf("\n\r[HANDSHAKE] Reminder count: %u, System time: %u", 
+                       expected_reminder_count, device_state.system_time);
+        #endif
+        
+        // Limit to MAX_REMINDERS
+        if (expected_reminder_count > MAX_REMINDERS)
+        {
+            expected_reminder_count = MAX_REMINDERS;
+            #ifdef CFG_PRINTF
+                arch_printf("\n\r[HANDSHAKE] WARNING: Reminder count limited to %d", MAX_REMINDERS);
+            #endif
+        }
+        
+        device_state.reminder_count = 0;
+        reminders_received = 0;
+        first_packet = false;
+        
+        // If no reminders expected, we're done
+        if (expected_reminder_count == 0)
+        {
+            device_state.handshake_complete = true;
+            first_packet = true;
+            #ifdef CFG_PRINTF
+                arch_printf("\n\r[HANDSHAKE] Complete (no reminders)");
+            #endif
+        }
+    }
+    else if (!first_packet)
+    {
+        // Subsequent packets: parse reminder timestamps (each 4 bytes)
+        uint16_t offset = 0;
+        
+        while (offset + 4 <= length && reminders_received < expected_reminder_count)
+        {
+            uint32_t reminder_timestamp = ((uint32_t)data[offset] << 24) |
+                                          ((uint32_t)data[offset + 1] << 16) |
+                                          ((uint32_t)data[offset + 2] << 8)  |
+                                          ((uint32_t)data[offset + 3]);
+            
+            // Convert timestamp to hour/minute (simplified - just store timestamp for now)
+            // In production, parse based on schedule time of day
+            uint32_t seconds_in_day = reminder_timestamp % 86400;
+            uint8_t hour = (seconds_in_day / 3600) % 24;
+            uint8_t minute = (seconds_in_day % 3600) / 60;
+            
+            if (device_state.reminder_count < MAX_REMINDERS)
+            {
+                device_state.reminders[device_state.reminder_count].hour = hour;
+                device_state.reminders[device_state.reminder_count].minute = minute;
+                device_state.reminder_count++;
+            }
+            
+            reminders_received++;
+            offset += 4;
+            
+            #ifdef CFG_PRINTF
+                arch_printf("\n\r[HANDSHAKE] Reminder %u: %02d:%02d", 
+                           reminders_received, hour, minute);
+            #endif
+        }
+        
+        // Check if all reminders received
+        if (reminders_received >= expected_reminder_count)
+        {
+            device_state.handshake_complete = true;
+            first_packet = true;
+            #ifdef CFG_PRINTF
+                arch_printf("\n\r[HANDSHAKE] Complete - %u reminders stored", device_state.reminder_count);
+            #endif
+        }
+    }
+    else
+    {
+        #ifdef CFG_PRINTF
+            arch_printf("\n\r[HANDSHAKE] ERROR: Invalid packet (length=%d, first=%d)", 
+                       length, first_packet);
+        #endif
+    }
+}
+
+/**
+ ****************************************************************************************
+ * @brief Handle update write (clock update).
+ ****************************************************************************************
+ */
+void handle_update_write(const uint8_t *data, uint16_t length)
+{
+    if (length >= 4)
+    {
+        uint32_t new_epoch = ((uint32_t)data[0] << 24) |
+                              ((uint32_t)data[1] << 16) |
+                              ((uint32_t)data[2] << 8)  |
+                              ((uint32_t)data[3]);
+        
+        device_state.system_time = new_epoch;
+        
+        #ifdef CFG_PRINTF
+            arch_printf("\n\r[UPDATE] Clock update: epoch=%u", new_epoch);
+        #endif
+    }
+    else
+    {
+        #ifdef CFG_PRINTF
+            arch_printf("\n\r[UPDATE] ERROR: Invalid length (%d bytes, expected 4)", length);
+        #endif
+    }
 }
 
 /*
@@ -560,10 +803,15 @@ void user_catch_rest_hndl(ke_msg_id_t const msgid,
             
             if (rsp->status == ATT_ERR_NO_ERROR)
             {
-                // Store the start handle - we'll use this to calculate char handles
-                // First service added is timestamp service (6 attributes)
-                // Second would be update service
-                if (timestamp_service_start_handle == 0)
+                // Store service handles in order: handshake, timestamp, update
+                if (handshake_service_start_handle == 0)
+                {
+                    handshake_service_start_handle = rsp->start_hdl;
+                    #ifdef CFG_PRINTF
+                        arch_printf("\n\r[GATT] Handshake service registered at handle %d", handshake_service_start_handle);
+                    #endif
+                }
+                else if (timestamp_service_start_handle == 0)
                 {
                     timestamp_service_start_handle = rsp->start_hdl;
                     #ifdef CFG_PRINTF
@@ -595,12 +843,23 @@ void user_catch_rest_hndl(ke_msg_id_t const msgid,
                 arch_printf("\n\r[GATT] Write event received: handle=%d, length=%d", msg->handle, msg->length);
             #endif
 
-            // Calculate actual characteristic handles from service start handle
+            // Calculate actual characteristic handles from service start handles
+            // Handshake service: [0]=svc, [1]=char_decl, [2]=val
             // Timestamp service: [0]=svc, [1]=char_decl, [2]=req_val, [3]=char_decl, [4]=resp_val, [5]=ccc
+            // Update service: [0]=svc, [1]=char_decl, [2]=val
+            uint16_t handshake_val_handle = handshake_service_start_handle + 2;
             uint16_t timestamp_req_handle = timestamp_service_start_handle + 2;
-            uint16_t update_val_handle = update_service_start_handle + 2; // When we add update service
+            uint16_t update_val_handle = update_service_start_handle + 2;
 
-            if (msg->handle == timestamp_req_handle)
+            if (handshake_service_start_handle && msg->handle == handshake_val_handle)
+            {
+                /* Handshake: mobile writes reminders + system time */
+                #ifdef CFG_PRINTF
+                    arch_printf("\n\r[GATT] Handshake write");
+                #endif
+                handle_handshake_write(msg->value, msg->length);
+            }
+            else if (timestamp_service_start_handle && msg->handle == timestamp_req_handle)
             {
                 /* Timestamp Request: mobile requests timestamp stream from a specific index.
                    Expect 4-byte big-endian index (matches GoLangServer protocol) */
@@ -625,49 +884,11 @@ void user_catch_rest_hndl(ke_msg_id_t const msgid,
             }
             else if (update_service_start_handle && msg->handle == update_val_handle)
             {
-                /* Clock Update: mobile sends a 4-byte big-endian epoch/clock time.
-                   Device should update internal RTC with this value (implementation pending).
-                   Matches GoLangServer protocol. */
-                if (msg->length >= 4)
-                {
-                    uint32_t new_epoch = ((uint32_t)msg->value[0] << 24) |
-                                          ((uint32_t)msg->value[1] << 16) |
-                                          ((uint32_t)msg->value[2] << 8)  |
-                                          ((uint32_t)msg->value[3]);
-                    #ifdef CFG_PRINTF
-                        arch_printf("\n\r[GATT] Clock Update received: epoch=0x%08X (%u)", new_epoch, new_epoch);
-                        arch_printf("\n\r[GATT] RTC update skipped (not enabled in build)");
-                    #endif
-
-                    /* RTC update disabled - to enable, add rtc.c to Keil project and uncomment */
-                    #if 0
-                    {
-                        rtc_time_t rtc_time;
-                        rtc_calendar_t rtc_calendar;
-
-                        /* Convert epoch -> rtc structures (UTC) */
-                        epoch_to_rtc(new_epoch, &rtc_time, &rtc_calendar);
-
-                        /* Attempt to set RTC calendar/time */
-                        rtc_status_code_t status = rtc_set_time_clndr(&rtc_time, &rtc_calendar);
-
-                        #ifdef CFG_PRINTF
-                            if (status == RTC_STATUS_CODE_VALID_ENTRY) {
-                                arch_printf("\n\r[GATT] RTC updated successfully\n");
-                            } else {
-                                arch_printf("\n\r[GATT] RTC update failed, status=%d\n", (int)status);
-                            }
-                        #endif
-                    }
-                    #endif
-                }
-                else
-                {
-                    #ifdef CFG_PRINTF
-                        arch_printf("\n\r[GATT] ERROR: Clock Update too short (%d bytes, expected 4)",
-                                   msg->length);
-                    #endif
-                }
+                /* Update service: mobile writes epoch time for clock update */
+                #ifdef CFG_PRINTF
+                    arch_printf("\n\r[GATT] Update write");
+                #endif
+                handle_update_write(msg->value, msg->length);
             }
             else
             {
