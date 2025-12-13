@@ -35,7 +35,9 @@
  
 #include "user_ble_burst_adv.h"
 #include "gattc_task.h"
+#include "gattm_task.h"
 #include "prf_utils.h"
+#include "attm.h"
 #include "custom_profile/user_custs1_def.h"
 // #include "rtc.h"  // RTC support disabled - add rtc.c to Keil project to enable
 
@@ -437,8 +439,13 @@ void user_catch_rest_hndl(ke_msg_id_t const msgid,
                           ke_task_id_t const dest_id,
                           ke_task_id_t const src_id)
 {
+    #ifdef CFG_PRINTF
+        arch_printf("\n\r[GATT] Received msgid=0x%04X, dest=0x%04X, src=0x%04X", msgid, dest_id, src_id);
+    #endif
+
     switch(msgid)
     {
+        case 0x0D00:  // GATTM_ADD_SVC_RSP or similar - handle as write indication
         case GATTC_WRITE_REQ_IND:
         {
             struct gattc_write_req_ind const *msg = (struct gattc_write_req_ind const *)(param);
