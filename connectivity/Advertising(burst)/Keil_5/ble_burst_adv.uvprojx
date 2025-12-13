@@ -6940,7 +6940,6 @@
           </Files>
         </Group>
         <Group>
-        <Group>
           <GroupName>custom_profile</GroupName>
           <Files>
             <File>
@@ -6955,6 +6954,7 @@
             </File>
           </Files>
         </Group>
+        <Group>
           <GroupName>user_app</GroupName>
           <Files>
             <File>
