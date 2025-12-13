@@ -834,7 +834,6 @@ void user_catch_rest_hndl(ke_msg_id_t const msgid,
             }
         } break;
         
-        case 0x0D00:  // Legacy case - remove after testing
         case GATTC_WRITE_REQ_IND:
         {
             struct gattc_write_req_ind const *msg = (struct gattc_write_req_ind const *)(param);
@@ -842,6 +841,24 @@ void user_catch_rest_hndl(ke_msg_id_t const msgid,
             #ifdef CFG_PRINTF
                 arch_printf("\n\r[GATT] Write event received: handle=%d, length=%d", msg->handle, msg->length);
             #endif
+
+            // Ignore writes if services not yet registered (spurious messages during connection)
+            if (!handshake_service_start_handle || !timestamp_service_start_handle || !update_service_start_handle)
+            {
+                #ifdef CFG_PRINTF
+                    arch_printf("\n\r[GATT] WARNING: Write received before services registered, ignoring");
+                #endif
+                
+                // Still send confirmation to avoid protocol errors
+                struct gattc_write_cfm *cfm = KE_MSG_ALLOC(GATTC_WRITE_CFM,
+                                                           src_id,
+                                                           dest_id,
+                                                           gattc_write_cfm);
+                cfm->handle = msg->handle;
+                cfm->status = ATT_ERR_NO_ERROR;
+                ke_msg_send(cfm);
+                break;
+            }
 
             // Calculate actual characteristic handles from service start handles
             // Handshake service: [0]=svc, [1]=char_decl, [2]=val
@@ -851,7 +868,7 @@ void user_catch_rest_hndl(ke_msg_id_t const msgid,
             uint16_t timestamp_req_handle = timestamp_service_start_handle + 2;
             uint16_t update_val_handle = update_service_start_handle + 2;
 
-            if (handshake_service_start_handle && msg->handle == handshake_val_handle)
+            if (msg->handle == handshake_val_handle)
             {
                 /* Handshake: mobile writes reminders + system time */
                 #ifdef CFG_PRINTF
@@ -859,7 +876,7 @@ void user_catch_rest_hndl(ke_msg_id_t const msgid,
                 #endif
                 handle_handshake_write(msg->value, msg->length);
             }
-            else if (timestamp_service_start_handle && msg->handle == timestamp_req_handle)
+            else if (msg->handle == timestamp_req_handle)
             {
                 /* Timestamp Request: mobile requests timestamp stream from a specific index.
                    Expect 4-byte big-endian index (matches GoLangServer protocol) */
@@ -882,7 +899,7 @@ void user_catch_rest_hndl(ke_msg_id_t const msgid,
                     #endif
                 }
             }
-            else if (update_service_start_handle && msg->handle == update_val_handle)
+            else if (msg->handle == update_val_handle)
             {
                 /* Update service: mobile writes epoch time for clock update */
                 #ifdef CFG_PRINTF
@@ -905,6 +922,25 @@ void user_catch_rest_hndl(ke_msg_id_t const msgid,
             cfm->handle = msg->handle;
             cfm->status = ATT_ERR_NO_ERROR;
             ke_msg_send(cfm);
+        } break;
+        
+        case GATTC_READ_REQ_IND:
+        {
+            // Read requests during service discovery - send empty response
+            struct gattc_read_cfm *cfm = KE_MSG_ALLOC_DYN(GATTC_READ_CFM,
+                                                          src_id,
+                                                          dest_id,
+                                                          gattc_read_cfm,
+                                                          0);
+            struct gattc_read_req_ind const *req = (struct gattc_read_req_ind const *)(param);
+            cfm->handle = req->handle;
+            cfm->length = 0;
+            cfm->status = ATT_ERR_NO_ERROR;
+            ke_msg_send(cfm);
+            
+            #ifdef CFG_PRINTF
+                arch_printf("\n\r[GATT] Read request handle=%d (service discovery)", req->handle);
+            #endif
         } break;
 
         default:
