@@ -788,7 +788,17 @@ void user_catch_rest_hndl(ke_msg_id_t const msgid,
                           ke_task_id_t const src_id)
 {
     #ifdef CFG_PRINTF
-        arch_printf("\n\r[GATT] Received msgid=0x%04X, dest=0x%04X, src=0x%04X", msgid, dest_id, src_id);
+        arch_printf("\n\r[GATT] msgid=0x%04X, dest=0x%04X, src=0x%04X", msgid, dest_id, src_id);
+        
+        // Debug: Show which service handles are active
+        static bool once = false;
+        if (!once && handshake_service_start_handle && timestamp_service_start_handle && update_service_start_handle)
+        {
+            arch_printf("\n\r[DEBUG] Handshake write handle: %d", handshake_service_start_handle + 2);
+            arch_printf("\n\r[DEBUG] Timestamp write handle: %d", timestamp_service_start_handle + 2);
+            arch_printf("\n\r[DEBUG] Update write handle: %d", update_service_start_handle + 2);
+            once = true;
+        }
     #endif
 
     switch(msgid)
@@ -872,7 +882,11 @@ void user_catch_rest_hndl(ke_msg_id_t const msgid,
             {
                 /* Handshake: mobile writes reminders + system time */
                 #ifdef CFG_PRINTF
-                    arch_printf("\n\r[GATT] Handshake write");
+                    arch_printf("\n\r[HANDSHAKE] Write received to handle %d, length=%d", msg->handle, msg->length);
+                    arch_printf("\n\r[HANDSHAKE] Data: ");
+                    for (uint16_t i = 0; i < msg->length && i < 20; i++) {
+                        arch_printf("%02X ", msg->value[i]);
+                    }
                 #endif
                 handle_handshake_write(msg->value, msg->length);
             }
@@ -939,15 +953,31 @@ void user_catch_rest_hndl(ke_msg_id_t const msgid,
             ke_msg_send(cfm);
             
             #ifdef CFG_PRINTF
-                arch_printf("\n\r[GATT] Read request handle=%d (service discovery)", req->handle);
+                arch_printf("\n\r[GATT] Read request handle=%d", req->handle);
             #endif
         } break;
 
         default:
+        {
             #ifdef CFG_PRINTF
-                arch_printf("\n\r[GATT] Unhandled message ID: 0x%04X", msgid);
+                arch_printf("\n\r[GATT] *** UNHANDLED MESSAGE *** ID: 0x%04X", msgid);
+                
+                // Try to interpret as write request to debug
+                if (msgid == 0x0D00 || msgid == 0x1E0A) 
+                {
+                    struct gattc_write_req_ind const *msg = (struct gattc_write_req_ind const *)(param);
+                    arch_printf("\n\r[DEBUG] Attempting to parse as write: handle=%d, length=%d", msg->handle, msg->length);
+                    
+                    // Show first 20 bytes of data
+                    if (msg->length > 0 && msg->length < 100) {
+                        arch_printf("\n\r[DEBUG] Data: ");
+                        for (uint16_t i = 0; i < msg->length && i < 20; i++) {
+                            arch_printf("%02X ", msg->value[i]);
+                        }
+                    }
+                }
             #endif
-            break;
+        } break;
     }
 }
 
