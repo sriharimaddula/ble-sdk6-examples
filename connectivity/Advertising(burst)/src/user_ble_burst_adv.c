@@ -923,6 +923,15 @@ void user_catch_rest_hndl(ke_msg_id_t const msgid,
             }
         } break;
         
+        case GATTC_CMP_EVT:
+        {
+            struct gattc_cmp_evt const *evt = (struct gattc_cmp_evt const *)(param);
+            #ifdef CFG_PRINTF
+                arch_printf("\n\r[GATT] Completion Event: operation=0x%02X, status=0x%02X", 
+                           evt->operation, evt->status);
+            #endif
+        } break;
+
         case GATTC_WRITE_REQ_IND:
         {
             struct gattc_write_req_ind const *msg = (struct gattc_write_req_ind const *)(param);
@@ -1049,25 +1058,19 @@ void user_catch_rest_hndl(ke_msg_id_t const msgid,
             #endif
         } break;
 
+        case GATTC_CMP_EVT:
+        {
+            struct gattc_cmp_evt const *evt = (struct gattc_cmp_evt const *)(param);
+            #ifdef CFG_PRINTF
+                arch_printf("\n\r[GATT] Completion Event: operation=0x%02X, status=0x%02X", 
+                           evt->operation, evt->status);
+            #endif
+        } break;
+
         default:
         {
             #ifdef CFG_PRINTF
                 arch_printf("\n\r[GATT] *** UNHANDLED MESSAGE *** ID: 0x%04X", msgid);
-                
-                // Try to interpret as write request to debug
-                if (msgid == 0x0D00 || msgid == 0x1E0A) 
-                {
-                    struct gattc_write_req_ind const *msg = (struct gattc_write_req_ind const *)(param);
-                    arch_printf("\n\r[DEBUG] Attempting to parse as write: handle=%d, length=%d", msg->handle, msg->length);
-                    
-                    // Show first 20 bytes of data
-                    if (msg->length > 0 && msg->length < 100) {
-                        arch_printf("\n\r[DEBUG] Data: ");
-                        for (uint16_t i = 0; i < msg->length && i < 20; i++) {
-                            arch_printf("%02X ", msg->value[i]);
-                        }
-                    }
-                }
             #endif
         } break;
     }
