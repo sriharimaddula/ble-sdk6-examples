@@ -1041,20 +1041,34 @@ void user_catch_rest_hndl(ke_msg_id_t const msgid,
         case 0x0E11:  // GATTC_READ_REQ_IND (explicit hex value)
         case GATTC_READ_REQ_IND:
         {
-            // Read requests during service discovery - send empty response
+            struct gattc_read_req_ind const *req = (struct gattc_read_req_ind const *)(param);
+            uint8_t status = ATT_ERR_ATTRIBUTE_NOT_FOUND;
+            uint16_t length = 0;
+            uint8_t val[2] = {0};
+
+            // Check for Timestamp Response CCC (only readable attribute)
+            // Handle = Service Start (16) + 3 = 19
+            if (service_handles[2] != 0 && req->handle == (service_handles[2] + 3))
+            {
+                status = ATT_ERR_NO_ERROR;
+                length = 2;
+                // Return 0x0000 (Notifications disabled) by default
+                // Real implementation would track CCC state per connection
+            }
+            
             struct gattc_read_cfm *cfm = KE_MSG_ALLOC_DYN(GATTC_READ_CFM,
                                                           src_id,
                                                           dest_id,
                                                           gattc_read_cfm,
-                                                          0);
-            struct gattc_read_req_ind const *req = (struct gattc_read_req_ind const *)(param);
+                                                          length);
             cfm->handle = req->handle;
-            cfm->length = 0;
-            cfm->status = ATT_ERR_NO_ERROR;
+            cfm->length = length;
+            cfm->status = status;
+            if (length > 0) memcpy(cfm->value, val, length);
             ke_msg_send(cfm);
             
             #ifdef CFG_PRINTF
-                arch_printf("\n\r[GATT] Read request handle=%d", req->handle);
+                arch_printf("\n\r[GATT] Read request handle=%d, status=0x%02X", req->handle, status);
             #endif
         } break;
 
