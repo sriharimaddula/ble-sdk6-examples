@@ -91,6 +91,11 @@
 
 /****************************************************************************************************************/
 /* Custom heap sizes                                                                                            */
+/* DECISION (Dec 2025): Keep SDK defaults for 4 dynamically-registered 128-bit UUID services.                  */
+/* Research of 26 SDK examples confirms ALL use defaults. Analysis shows:                                      */
+/*   - DB_HEAP: 1024 bytes (sufficient for ~820 bytes used by 4 services, 20% margin)                          */
+/*   - MSG_HEAP: 6880 bytes (sufficient for ~5500 bytes used by dynamic GATT requests, 20% margin)             */
+/* Reference: dyn_custom_svc example uses defaults for dynamic service registration successfully.              */
 /****************************************************************************************************************/
 // #define DB_HEAP_SZ              1024
 // #define ENV_HEAP_SZ             4928

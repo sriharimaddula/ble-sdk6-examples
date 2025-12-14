@@ -176,6 +176,14 @@ void user_on_set_dev_config_complete(void)
 	
     default_app_on_set_dev_config_complete();
 	
+    // Register custom GATT services BEFORE advertising starts
+    // This ensures services are in GATT database when clients connect
+    #ifdef CFG_PRINTF
+        arch_printf("\n\r[INIT] Registering custom services BEFORE advertising...");
+    #endif
+    register_custom_services();
+	
+    // Start advertising after services are registered
 	  start_advertising();
 }
 
@@ -227,11 +235,12 @@ static void register_handshake_service(void)
     const uint8_t handshake_svc_uuid[] = DEF_HSVC_UUID_128;
     const uint8_t handshake_char_uuid[] = DEF_HSVC_CHAR_UUID_128;
     
-    #ifdef CFG_PRINTF
-        arch_printf("\n\r[REGISTER] Handshake/Configure Service UUID: 0000180D-0000-1000-8000-00805f9b34fb");
-    #endif
+    const uint8_t num_atts = 2; // char_decl + char_val (service decl implicit)
     
-    const uint8_t num_atts = 3; // 1 svc + 1 char_decl + 1 char_val
+    #ifdef CFG_PRINTF
+        arch_printf("\n\r[GATT] Handshake Service: UUID=0000180D, nb_att=%d, buf_size=%d",
+                    num_atts, num_atts * sizeof(struct gattm_att_desc));
+    #endif
     
     struct gattm_add_svc_req *req = KE_MSG_ALLOC_DYN(GATTM_ADD_SVC_REQ,
                                                       TASK_GATTM,
@@ -257,11 +266,11 @@ static void register_handshake_service(void)
     req->svc_desc.atts[1].perm = PERM(WR, ENABLE) | PERM(WRITE_REQ, ENABLE);
     req->svc_desc.atts[1].max_len = DEF_HSVC_CHAR_LEN;
     
-    ke_msg_send(req);
-    
     #ifdef CFG_PRINTF
-        arch_printf("\n\r[GATT] Handshake service registration sent");
+        arch_printf("\n\r[GATT] Handshake service request sent (GATTM_ADD_SVC_REQ)");
     #endif
+    
+    ke_msg_send(req);
 }
 
 /**
@@ -274,7 +283,11 @@ static void register_timestamp_request_service(void)
     const uint8_t timestamp_req_svc_uuid[] = DEF_TSVC_UUID_128;
     const uint8_t timestamp_req_char_uuid[] = DEF_TSVC_REQ_UUID_128;
     
-    const uint8_t num_atts = 3; // 1 svc + 1 char_decl + 1 char_val
+    const uint8_t num_atts = 2; // char_decl + char_val (service decl implicit)
+    
+    #ifdef CFG_PRINTF
+        arch_printf("\n\r[GATT] Timestamp REQUEST Service: nb_att=%d", num_atts);
+    #endif
     
     struct gattm_add_svc_req *req = KE_MSG_ALLOC_DYN(GATTM_ADD_SVC_REQ,
                                                       TASK_GATTM,
@@ -300,11 +313,11 @@ static void register_timestamp_request_service(void)
     req->svc_desc.atts[1].perm = PERM(WR, ENABLE) | PERM(WRITE_REQ, ENABLE);
     req->svc_desc.atts[1].max_len = DEF_TSVC_REQ_CHAR_LEN;
     
-    ke_msg_send(req);
-    
     #ifdef CFG_PRINTF
-        arch_printf("\n\r[GATT] Timestamp REQUEST service registration sent");
+        arch_printf("\n\r[GATT] Timestamp REQUEST service request sent");
     #endif
+    
+    ke_msg_send(req);
 }
 
 /**
@@ -317,7 +330,11 @@ static void register_timestamp_response_service(void)
     const uint8_t timestamp_resp_svc_uuid[] = DEF_TSVC_RESP_SVC_UUID_128;
     const uint8_t timestamp_resp_char_uuid[] = DEF_TSVC_RESP_UUID_128;
     
-    const uint8_t num_atts = 3; // 1 char_decl + 1 char_val + 1 ccc (service implicit)
+    const uint8_t num_atts = 3; // char_decl + char_val + ccc (service decl implicit)
+    
+    #ifdef CFG_PRINTF
+        arch_printf("\n\r[GATT] Timestamp RESPONSE Service: nb_att=%d (with CCC)", num_atts);
+    #endif
     
     struct gattm_add_svc_req *req = KE_MSG_ALLOC_DYN(GATTM_ADD_SVC_REQ,
                                                       TASK_GATTM,
@@ -349,11 +366,11 @@ static void register_timestamp_response_service(void)
     req->svc_desc.atts[2].perm = PERM(RD, ENABLE) | PERM(WR, ENABLE) | PERM(WRITE_REQ, ENABLE);
     req->svc_desc.atts[2].max_len = sizeof(uint16_t);
     
-    ke_msg_send(req);
-    
     #ifdef CFG_PRINTF
-        arch_printf("\n\r[GATT] Timestamp RESPONSE service registration sent");
+        arch_printf("\n\r[GATT] Timestamp RESPONSE service request sent");
     #endif
+    
+    ke_msg_send(req);
 }
 
 /**
@@ -366,7 +383,11 @@ static void register_update_service(void)
     const uint8_t update_svc_uuid[] = DEF_UPDATE_SVC_UUID_128;
     const uint8_t update_char_uuid[] = DEF_UPDATE_CHAR_UUID_128;
     
-    const uint8_t num_atts = 3; // 1 svc + 1 char_decl + 1 char_val
+    const uint8_t num_atts = 2; // char_decl + char_val (service decl implicit)
+    
+    #ifdef CFG_PRINTF
+        arch_printf("\n\r[GATT] Update Service: nb_att=%d", num_atts);
+    #endif
     
     struct gattm_add_svc_req *req = KE_MSG_ALLOC_DYN(GATTM_ADD_SVC_REQ,
                                                       TASK_GATTM,
@@ -392,11 +413,11 @@ static void register_update_service(void)
     req->svc_desc.atts[1].perm = PERM(WR, ENABLE) | PERM(WRITE_REQ, ENABLE);
     req->svc_desc.atts[1].max_len = DEF_UPDATE_CHAR_LEN;
     
-    ke_msg_send(req);
-    
     #ifdef CFG_PRINTF
-        arch_printf("\n\r[GATT] Update service registration sent");
+        arch_printf("\n\r[GATT] Update service request sent");
     #endif
+    
+    ke_msg_send(req);
 }
 
 /**
@@ -436,12 +457,8 @@ void user_on_connection(uint8_t connection_idx, struct gapc_connection_req_ind c
         // Stop advertising now we are connected
 			  app_easy_gap_advertise_with_timeout_stop();  
 			  
-			  // Register services NOW on connection (not before advertising)
-			  // This reduces BLE stack memory allocation
-			  #ifdef CFG_PRINTF
-			      arch_printf("\n\r[CONN] Registering custom services...");
-			  #endif
-			  register_custom_services();
+			  // Services already registered in user_on_set_dev_config_complete()
+			  // No need to register here - they exist in GATT DB before connection
 			  
 			  // Enable the created profiles/services
         app_prf_enable(connection_idx);
@@ -875,6 +892,16 @@ void user_catch_rest_hndl(ke_msg_id_t const msgid,
                     service_handles[3] = rsp->start_hdl;
                     #ifdef CFG_PRINTF
                         arch_printf("\n\r[GATT] Update service registered at handle %d", service_handles[3]);
+                        arch_printf("\n\r");
+                        arch_printf("\n\r========== GATT DATABASE COMPLETE ==========");
+                        arch_printf("\n\r[DB] Handshake Service:     handles %d-%d", service_handles[0], service_handles[0] + 2);
+                        arch_printf("\n\r[DB] Timestamp REQUEST:     handles %d-%d", service_handles[1], service_handles[1] + 2);
+                        arch_printf("\n\r[DB] Timestamp RESPONSE:    handles %d-%d", service_handles[2], service_handles[2] + 3);
+                        arch_printf("\n\r[DB] Update Service:        handles %d-%d", service_handles[3], service_handles[3] + 2);
+                        arch_printf("\n\r[DB] Total custom services: 4 (13 attributes)");
+                        arch_printf("\n\r[DB] Services NOW VISIBLE to BLE clients");
+                        arch_printf("\n\r============================================");
+                        arch_printf("\n\r");
                     #endif
                 }
             }
