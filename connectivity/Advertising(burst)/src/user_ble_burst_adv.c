@@ -175,13 +175,6 @@ void user_on_set_dev_config_complete(void)
 	  #endif
 	
     default_app_on_set_dev_config_complete();
-    
-    // Register custom GATT services BEFORE advertising starts
-    // This ensures services are available when mobile app connects and discovers
-    #ifdef CFG_PRINTF
-        arch_printf("\n\r[INIT] Registering custom services before advertising...");
-    #endif
-    register_custom_services();
 	
 	  start_advertising();
 }
@@ -443,8 +436,14 @@ void user_on_connection(uint8_t connection_idx, struct gapc_connection_req_ind c
         // Stop advertising now we are connected
 			  app_easy_gap_advertise_with_timeout_stop();  
 			  
-			  // Services already registered in user_on_set_dev_config_complete()
-			  // Just enable the created profiles/services
+			  // Register services NOW on connection (not before advertising)
+			  // This reduces BLE stack memory allocation
+			  #ifdef CFG_PRINTF
+			      arch_printf("\n\r[CONN] Registering custom services...");
+			  #endif
+			  register_custom_services();
+			  
+			  // Enable the created profiles/services
         app_prf_enable(connection_idx);
     }
     else

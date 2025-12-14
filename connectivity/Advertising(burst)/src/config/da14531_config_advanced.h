@@ -92,11 +92,10 @@
 /****************************************************************************************************************/
 /* Custom heap sizes                                                                                            */
 /****************************************************************************************************************/
-/* Reduced heap sizes for RAM-constrained dynamic GATT implementation */
-#define DB_HEAP_SZ              768    // Reduced from default 1024 (saves 256 bytes)
-#define ENV_HEAP_SZ             3072   // Reduced from default 4928 (saves ~1856 bytes)
-#define MSG_HEAP_SZ             4096   // Reduced from default 6880 (saves ~2784 bytes)
-// #define NON_RET_HEAP_SZ         2048   // Keep default
+// #define DB_HEAP_SZ              1024
+// #define ENV_HEAP_SZ             4928
+// #define MSG_HEAP_SZ             6880
+// #define NON_RET_HEAP_SZ         2048
 
 /****************************************************************************************************************/
 /* NVDS configuration                                                                                           */
