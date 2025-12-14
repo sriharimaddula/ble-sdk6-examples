@@ -59,9 +59,6 @@
 static timer_hnd adv_burst_timer_id		__attribute__((section(".bss."))); // @RETENTION MEMORY
 static uint16_t adv_period_ticks      __attribute__((section(".bss."))); // @RETENTION MEMORY
 
-/* Advertisement burst counter (used in payload and debug) */
-static uint32_t advert_count = 0;
-
 /* Advertisement data buffer - reduced to minimum needed (only 5 bytes data) */
 /* Advertisement data buffer - reduced to minimum needed (only 5 bytes data) */
 /* Format: length(1) + type(1) + company_id(2) + counter(1) = 5 bytes total
@@ -69,7 +66,7 @@ static uint32_t advert_count = 0;
    \xFF = manufacturer specific data type
    \x4C\x00 = Apple company ID (little endian)
    counter byte will be updated dynamically */
-static uint8_t adv_data_buf[10];  // Reduced from 31 (saves 21 bytes)
+static uint8_t adv_data_buf[6];  // Further reduced from 10 (saves 4 more bytes)
 static uint8_t adv_data_len = 0;
 
 /* Device state storage (reminders, system time) */
@@ -121,7 +118,7 @@ static void update_and_advertise(void)
     adv_data_buf[idx++] = 0xFF;  /* Manufacturer Specific Data type */
     adv_data_buf[idx++] = 0x4C;  /* Apple Company ID (low byte) */
     adv_data_buf[idx++] = 0x00;  /* Apple Company ID (high byte) */
-    adv_data_buf[idx++] = (uint8_t)(advert_count & 0xFF);  /* Counter byte */
+    adv_data_buf[idx++] = 0x00;  /* Static placeholder (saves RAM vs counter) */
     
     adv_data_len = idx;
     
@@ -129,7 +126,7 @@ static void update_and_advertise(void)
     app_easy_gap_update_adv_data(adv_data_buf, adv_data_len, NULL, 0);
     
     #ifdef CFG_PRINTF
-        arch_printf("\n\rADV_BURST #%u : Payload = ", advert_count);
+        arch_printf("\n\rADV_BURST: Payload = ");
         for (uint8_t i = 0; i < adv_data_len; i++) {
             arch_printf("%02X ", adv_data_buf[i]);
         }
@@ -151,9 +148,6 @@ static void start_advertising(void)
 	     events. Simple calculation based on the advertising interval and the required
 	     number of events. */
     adv_period_ticks = MS_TO_TIMERUNITS((user_adv_conf.intv_min * 0.625) * ADV_EVENTS_PER_BURST);
-
-    /* Increment advertisement burst counter */
-    advert_count++;
 
     /* Update advertisement data with counter and advertise */
     update_and_advertise();

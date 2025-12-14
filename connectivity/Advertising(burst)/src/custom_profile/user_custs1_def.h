@@ -46,7 +46,7 @@
 #define DEF_TSVC_RESP_CHAR_LEN 20   /* 20-byte chunks (5 timestamps) */
 #define DEF_UPDATE_CHAR_LEN     4   /* 4-byte epoch time */
 
-#define MAX_REMINDERS 3             /* Max 3 reminders (reduced for RAM constraints) */
+#define MAX_REMINDERS 2             /* Max 2 reminders (further reduced for RAM constraints) */
 
 /* CUSTS1 index enum */
 enum
