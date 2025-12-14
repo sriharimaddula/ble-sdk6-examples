@@ -90,19 +90,15 @@
 #define CFG_USE_CHACHA20_RAND
 
 /****************************************************************************************************************/
-/* Custom heap sizes - OPTIMIZED for RAM-constrained DA14531 (48KB total)                                      */
-/* Phase 1 RAM reduction: Remove DIS profile (~2KB) + reduce heaps to actual usage (~2KB)                      */
-/* Analysis: 4 services with 13 attributes need ~820 bytes DB + ~5000 bytes MSG for dynamic registration       */
-/* DB_HEAP: 800 bytes (tight fit for 4 services, minimal waste)                                                */
-/* MSG_HEAP: 5000 bytes (reduced from 6880, sufficient for service registration messages)                      */
-/* ENV_HEAP: Keep default 4928 (connection context, don't reduce)                                              */
-/* NON_RET_HEAP: Keep default 2048 (temporary allocations)                                                     */
-/* Total savings: ~2KB from heap tuning + ~2KB from disabling DIS = ~4KB free RAM                              */
+/* Custom heap sizes                                                                                            */
+/* CRITICAL LESSON: Keep commented out to let SDK auto-calculate optimal sizes!                                */
+/* Original code had these commented = SDK dynamically sizes heaps based on actual usage                       */
+/* Forcing fixed sizes caused RAM overflow. Trust the SDK's runtime calculation.                               */
 /****************************************************************************************************************/
-#define DB_HEAP_SZ              800   // Reduced from 1024 (saves 224 bytes)
-// #define ENV_HEAP_SZ             4928  // Keep default (connection context)
-#define MSG_HEAP_SZ             5000  // Reduced from 6880 (saves 1880 bytes)
-// #define NON_RET_HEAP_SZ         2048  // Keep default (temporary allocations)
+// #define DB_HEAP_SZ              1024
+// #define ENV_HEAP_SZ             4928
+// #define MSG_HEAP_SZ             6880
+// #define NON_RET_HEAP_SZ         2048
 
 /****************************************************************************************************************/
 /* NVDS configuration                                                                                           */
@@ -199,10 +195,10 @@
 #undef AUTO_DATA_LENGTH_NEGOTIATION_UPON_NEW_CONNECTION
 
 /****************************************************************************************************************/
-/* Maximum retention memory in bytes. The base address of the retention data is calculated from the selected    */
-/* size.                                                                                                        */
+/* Maximum retention memory in bytes. RESTORED TO ORIGINAL (2048).                                             */
+/* Reducing this was WRONG - it forces memory regions to compress and overlap.                                 */
 /****************************************************************************************************************/
-#define CFG_RET_DATA_SIZE    (1536)
+#define CFG_RET_DATA_SIZE    (2048)
 
 /****************************************************************************************************************/
 /* Maximum uninitialized retained data required by the application.                                             */
