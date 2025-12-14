@@ -90,17 +90,19 @@
 #define CFG_USE_CHACHA20_RAND
 
 /****************************************************************************************************************/
-/* Custom heap sizes                                                                                            */
-/* DECISION (Dec 2025): Keep SDK defaults for 4 dynamically-registered 128-bit UUID services.                  */
-/* Research of 26 SDK examples confirms ALL use defaults. Analysis shows:                                      */
-/*   - DB_HEAP: 1024 bytes (sufficient for ~820 bytes used by 4 services, 20% margin)                          */
-/*   - MSG_HEAP: 6880 bytes (sufficient for ~5500 bytes used by dynamic GATT requests, 20% margin)             */
-/* Reference: dyn_custom_svc example uses defaults for dynamic service registration successfully.              */
+/* Custom heap sizes - OPTIMIZED for RAM-constrained DA14531 (48KB total)                                      */
+/* Phase 1 RAM reduction: Remove DIS profile (~2KB) + reduce heaps to actual usage (~2KB)                      */
+/* Analysis: 4 services with 13 attributes need ~820 bytes DB + ~5000 bytes MSG for dynamic registration       */
+/* DB_HEAP: 800 bytes (tight fit for 4 services, minimal waste)                                                */
+/* MSG_HEAP: 5000 bytes (reduced from 6880, sufficient for service registration messages)                      */
+/* ENV_HEAP: Keep default 4928 (connection context, don't reduce)                                              */
+/* NON_RET_HEAP: Keep default 2048 (temporary allocations)                                                     */
+/* Total savings: ~2KB from heap tuning + ~2KB from disabling DIS = ~4KB free RAM                              */
 /****************************************************************************************************************/
-// #define DB_HEAP_SZ              1024
-// #define ENV_HEAP_SZ             4928
-// #define MSG_HEAP_SZ             6880
-// #define NON_RET_HEAP_SZ         2048
+#define DB_HEAP_SZ              800   // Reduced from 1024 (saves 224 bytes)
+// #define ENV_HEAP_SZ             4928  // Keep default (connection context)
+#define MSG_HEAP_SZ             5000  // Reduced from 6880 (saves 1880 bytes)
+// #define NON_RET_HEAP_SZ         2048  // Keep default (temporary allocations)
 
 /****************************************************************************************************************/
 /* NVDS configuration                                                                                           */

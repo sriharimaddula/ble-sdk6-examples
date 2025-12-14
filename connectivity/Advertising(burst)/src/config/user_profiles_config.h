@@ -55,7 +55,8 @@
 /* Used BLE profiles (used by "rwprf_config.h").                                       */
 /***************************************************************************************/
 
-#define CFG_PRF_DISS
+// DISABLED: DIS profile not used by mobile app, saves ~2KB RAM
+// #define CFG_PRF_DISS
 
 /***************************************************************************************/
 /* Profile application configuration section                                           */

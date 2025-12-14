@@ -178,13 +178,11 @@ static const struct advertise_configuration user_adv_conf = {
  *    - The maximum length of the user defined response data shall be 31 bytes.
  ****************************************************************************************
  */
-/// Advertising data
-#define USER_ADVERTISE_DATA         "\x03"\
-                                    ADV_TYPE_COMPLETE_LIST_16BIT_SERVICE_IDS\
-                                    ADV_UUID_DEVICE_INFORMATION_SERVICE
+/// Advertising data (DIS UUID removed - profile disabled to save RAM)
+#define USER_ADVERTISE_DATA         ""
 
 /// Advertising data length - maximum 28 bytes, 3 bytes are reserved to set
-#define USER_ADVERTISE_DATA_LEN               (sizeof(USER_ADVERTISE_DATA)-1)
+#define USER_ADVERTISE_DATA_LEN               (0)
 
 /// Scan response data
 #define USER_ADVERTISE_SCAN_RESPONSE_DATA ""
