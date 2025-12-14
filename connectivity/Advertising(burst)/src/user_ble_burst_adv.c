@@ -481,32 +481,6 @@ void user_on_disconnect(struct gapc_disconnect_ind const *param)
 	  start_advertising();
 }
 
-/**
- ****************************************************************************************
- * @brief Called when mobile app requests connection parameter update.
- *        Always accept to prevent disconnection.
- *
- * @param[in] param         Connection parameter update request
- * @param[in] connection_idx Connection index
- *
- * @return None. 
- ****************************************************************************************
- */
-void user_on_update_params_request(struct gapc_param_update_req_ind const *param, uint8_t connection_idx)
-{
-    #ifdef CFG_PRINTF
-        arch_printf("\n\r[CONN] Parameter update request: intv_min=%d, intv_max=%d, latency=%d, timeout=%d",
-                   param->intv_min, param->intv_max, param->latency, param->time_out);
-    #endif
-    
-    // Always accept connection parameter updates to prevent disconnection
-    app_easy_gap_param_update_cfm(connection_idx, true);
-    
-    #ifdef CFG_PRINTF
-        arch_printf("\n\r[CONN] Parameter update ACCEPTED");
-    #endif
-}
-
 /*
  * GATT Write Handlers
  */

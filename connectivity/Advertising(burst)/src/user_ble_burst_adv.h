@@ -97,7 +97,6 @@ void user_on_connection(uint8_t connection_idx, struct gapc_connection_req_ind c
 void user_on_disconnect(struct gapc_disconnect_ind const *param);
 void user_on_set_dev_config_complete(void);
 void user_on_adv_undirect_complete(uint8_t status);
-void user_on_update_params_request(struct gapc_param_update_req_ind const *param, uint8_t connection_idx);
 
 /* Protocol handlers (BLE Droptor Protocol) */
 void handle_handshake_write(const uint8_t *data, uint16_t length);
