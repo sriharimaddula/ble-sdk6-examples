@@ -1073,6 +1073,11 @@ void user_catch_rest_hndl(ke_msg_id_t const msgid,
             #endif
         } break;
 
+        case 0x0D00: // GAPM_CMP_EVT
+        {
+            // Ignore GAPM complete events (advertising operations)
+        } break;
+
         default:
         {
             #ifdef CFG_PRINTF
