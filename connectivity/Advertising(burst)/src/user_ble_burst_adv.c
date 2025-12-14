@@ -183,6 +183,13 @@ void user_on_set_dev_config_complete(void)
 	  #endif
 	
     default_app_on_set_dev_config_complete();
+    
+    // Register custom GATT services BEFORE advertising starts
+    // This ensures services are available when mobile app connects and discovers
+    #ifdef CFG_PRINTF
+        arch_printf("\n\r[INIT] Registering custom services before advertising...");
+    #endif
+    register_custom_services();
 	
 	  start_advertising();
 }
@@ -444,10 +451,8 @@ void user_on_connection(uint8_t connection_idx, struct gapc_connection_req_ind c
         // Stop advertising now we are connected
 			  app_easy_gap_advertise_with_timeout_stop();  
 			  
-			  // Register custom GATT services dynamically
-			  register_custom_services();
-			  
-			  // Enable the created profiles/services
+			  // Services already registered in user_on_set_dev_config_complete()
+			  // Just enable the created profiles/services
         app_prf_enable(connection_idx);
     }
     else
@@ -469,11 +474,37 @@ void user_on_connection(uint8_t connection_idx, struct gapc_connection_req_ind c
 void user_on_disconnect(struct gapc_disconnect_ind const *param)
 {
     #ifdef CFG_PRINTF
-	      arch_printf("\n\r%s", __FUNCTION__);
+	      arch_printf("\n\r%s - reason=0x%02X", __FUNCTION__, param->reason);
 	  #endif
 
   	/* Restart burst advertising */
 	  start_advertising();
+}
+
+/**
+ ****************************************************************************************
+ * @brief Called when mobile app requests connection parameter update.
+ *        Always accept to prevent disconnection.
+ *
+ * @param[in] param         Connection parameter update request
+ * @param[in] connection_idx Connection index
+ *
+ * @return None. 
+ ****************************************************************************************
+ */
+void user_on_update_params_request(struct gapc_param_update_req_ind const *param, uint8_t connection_idx)
+{
+    #ifdef CFG_PRINTF
+        arch_printf("\n\r[CONN] Parameter update request: intv_min=%d, intv_max=%d, latency=%d, timeout=%d",
+                   param->intv_min, param->intv_max, param->latency, param->time_out);
+    #endif
+    
+    // Always accept connection parameter updates to prevent disconnection
+    app_easy_gap_param_update_cfm(connection_idx, true);
+    
+    #ifdef CFG_PRINTF
+        arch_printf("\n\r[CONN] Parameter update ACCEPTED");
+    #endif
 }
 
 /*
