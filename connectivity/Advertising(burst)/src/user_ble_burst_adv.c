@@ -59,6 +59,9 @@
 static timer_hnd adv_burst_timer_id		__attribute__((section(".bss."))); // @RETENTION MEMORY
 static uint16_t adv_period_ticks      __attribute__((section(".bss."))); // @RETENTION MEMORY
 
+/* Advertisement burst counter (used in payload and debug) */
+static uint32_t advert_count = 0;
+
 /* Advertisement data buffer - reduced to minimum needed (only 5 bytes data) */
 /* Advertisement data buffer - reduced to minimum needed (only 5 bytes data) */
 /* Format: length(1) + type(1) + company_id(2) + counter(1) = 5 bytes total
@@ -71,6 +74,10 @@ static uint8_t adv_data_len = 0;
 
 /* Device state storage (reminders, system time) */
 static device_state_t device_state __attribute__((section(".bss."))) = {0};
+
+/* Streaming state for timestamp notifications */
+static uint32_t ts_stream_idx = 0; /* next index to send */
+static timer_hnd ts_stream_timer_id __attribute__((section(".bss.")));
 
 /* GATT service handle tracking - consolidated into array (saves 2 bytes) */
 static uint16_t service_handles[4] = {0};  // [0]=handshake, [1]=ts_req, [2]=ts_resp, [3]=update
@@ -659,7 +666,7 @@ void handle_timestamp_request(uint32_t from_index)
                                                              4);
     count_req->operation = GATTC_NOTIFY;
     count_req->seq_num = 0;
-    count_req->handle = timestamp_resp_service_start_handle + 2;  // Response service notify char
+    count_req->handle = service_handles[2] + 2;  // Response service notify char
     count_req->length = 4;
     memcpy(count_req->value, count_buf, 4);
     ke_msg_send(count_req);
@@ -727,7 +734,7 @@ void notify_timestamp_chunk(void)
                                                        pos);
     req->operation = GATTC_NOTIFY;
     req->seq_num = 0;
-    req->handle = timestamp_resp_service_start_handle + 2;  // Response service notify char
+    req->handle = service_handles[2] + 2;  // Response service notify char
     req->length = pos;
     memcpy(req->value, buf, pos);
     ke_msg_send(req);
@@ -830,7 +837,7 @@ void user_catch_rest_hndl(ke_msg_id_t const msgid,
         {
             arch_printf("\n\r[DEBUG] Handshake write handle: %d", service_handles[0] + 2);
             arch_printf("\n\r[DEBUG] Timestamp REQUEST write handle: %d", timestamp_req_service_start_handle + 2);
-            arch_printf("\n\r[DEBUG] Timestamp RESPONSE notify handle: %d", timestamp_resp_service_start_handle + 2);
+            arch_printf("\n\r[DEBUG] Timestamp RESPONSE notify handle: %d", service_handles[2] + 2);
             arch_printf("\n\r[DEBUG] Update write handle: %d", update_service_start_handle + 2);
             once = true;
         }
