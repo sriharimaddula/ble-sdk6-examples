@@ -84,16 +84,6 @@ static uint16_t timestamp_req_service_start_handle = 0;
 static uint16_t timestamp_resp_service_start_handle = 0;
 static uint16_t update_service_start_handle = 0;
 
-/* UUID arrays in ROM (not RAM) */
-static const uint8_t rom_handshake_svc_uuid[] = DEF_HSVC_UUID_128;
-static const uint8_t rom_handshake_char_uuid[] = DEF_HSVC_CHAR_UUID_128;
-static const uint8_t rom_timestamp_req_svc_uuid[] = DEF_TSVC_UUID_128;
-static const uint8_t rom_timestamp_req_char_uuid[] = DEF_TSVC_REQ_UUID_128;
-static const uint8_t rom_timestamp_resp_svc_uuid[] = DEF_TSVC_RESP_SVC_UUID_128;
-static const uint8_t rom_timestamp_resp_char_uuid[] = DEF_TSVC_RESP_UUID_128;
-static const uint8_t rom_update_svc_uuid[] = DEF_UPDATE_SVC_UUID_128;
-static const uint8_t rom_update_char_uuid[] = DEF_UPDATE_CHAR_UUID_128;
-
 /* Forward declarations */
 void handle_handshake_write(const uint8_t *data, uint16_t length);
 void handle_timestamp_request(uint32_t from_index);
@@ -249,6 +239,9 @@ void user_on_adv_undirect_complete(uint8_t status)
  */
 static void register_handshake_service(void)
 {
+    const uint8_t handshake_svc_uuid[] = DEF_HSVC_UUID_128;
+    const uint8_t handshake_char_uuid[] = DEF_HSVC_CHAR_UUID_128;
+    
     #ifdef CFG_PRINTF
         arch_printf("\n\r[REGISTER] Handshake/Configure Service UUID: 0000180D-0000-1000-8000-00805f9b34fb");
     #endif
@@ -266,7 +259,7 @@ static void register_handshake_service(void)
     req->svc_desc.perm = (PERM_MASK_SVC_UUID_LEN & PERM_UUID_128) | 
                          (PERM_MASK_SVC_PRIMARY & PERM_RIGHT_ENABLE);
     req->svc_desc.nb_att = num_atts;
-    memcpy(req->svc_desc.uuid, rom_handshake_svc_uuid, ATT_UUID_128_LEN);
+    memcpy(req->svc_desc.uuid, handshake_svc_uuid, ATT_UUID_128_LEN);
     
     // Attribute 1: Characteristic declaration
     req->svc_desc.atts[1].uuid[0] = (ATT_DECL_CHARACTERISTIC & 0xFF);
@@ -275,7 +268,7 @@ static void register_handshake_service(void)
     req->svc_desc.atts[1].max_len = 0;
     
     // Attribute 2: Characteristic value (WRITE)
-    memcpy(req->svc_desc.atts[2].uuid, rom_handshake_char_uuid, ATT_UUID_128_LEN);
+    memcpy(req->svc_desc.atts[2].uuid, handshake_char_uuid, ATT_UUID_128_LEN);
     req->svc_desc.atts[2].perm = PERM(WR, ENABLE) | PERM(WRITE_REQ, ENABLE);
     req->svc_desc.atts[2].max_len = DEF_HSVC_CHAR_LEN;
     
@@ -293,6 +286,9 @@ static void register_handshake_service(void)
  */
 static void register_timestamp_request_service(void)
 {
+    const uint8_t timestamp_req_svc_uuid[] = DEF_TSVC_UUID_128;
+    const uint8_t timestamp_req_char_uuid[] = DEF_TSVC_REQ_UUID_128;
+    
     const uint8_t num_atts = 3; // 1 svc + 1 char_decl + 1 char_val
     
     struct gattm_add_svc_req *req = KE_MSG_ALLOC_DYN(GATTM_ADD_SVC_REQ,
@@ -306,7 +302,7 @@ static void register_timestamp_request_service(void)
     req->svc_desc.perm = (PERM_MASK_SVC_UUID_LEN & PERM_UUID_128) | 
                          (PERM_MASK_SVC_PRIMARY & PERM_RIGHT_ENABLE);
     req->svc_desc.nb_att = num_atts;
-    memcpy(req->svc_desc.uuid, rom_timestamp_req_svc_uuid, ATT_UUID_128_LEN);
+    memcpy(req->svc_desc.uuid, timestamp_req_svc_uuid, ATT_UUID_128_LEN);
     
     // Attribute 1: Request characteristic declaration
     req->svc_desc.atts[1].uuid[0] = (ATT_DECL_CHARACTERISTIC & 0xFF);
@@ -315,7 +311,7 @@ static void register_timestamp_request_service(void)
     req->svc_desc.atts[1].max_len = 0;
     
     // Attribute 2: Request characteristic value (WRITE)
-    memcpy(req->svc_desc.atts[2].uuid, rom_timestamp_req_char_uuid, ATT_UUID_128_LEN);
+    memcpy(req->svc_desc.atts[2].uuid, timestamp_req_char_uuid, ATT_UUID_128_LEN);
     req->svc_desc.atts[2].perm = PERM(WR, ENABLE) | PERM(WRITE_REQ, ENABLE);
     req->svc_desc.atts[2].max_len = DEF_TSVC_REQ_CHAR_LEN;
     
@@ -333,6 +329,9 @@ static void register_timestamp_request_service(void)
  */
 static void register_timestamp_response_service(void)
 {
+    const uint8_t timestamp_resp_svc_uuid[] = DEF_TSVC_RESP_SVC_UUID_128;
+    const uint8_t timestamp_resp_char_uuid[] = DEF_TSVC_RESP_UUID_128;
+    
     const uint8_t num_atts = 3; // 1 svc + 1 char_decl + 1 char_val + 1 ccc = 4
     
     struct gattm_add_svc_req *req = KE_MSG_ALLOC_DYN(GATTM_ADD_SVC_REQ,
@@ -346,7 +345,7 @@ static void register_timestamp_response_service(void)
     req->svc_desc.perm = (PERM_MASK_SVC_UUID_LEN & PERM_UUID_128) | 
                          (PERM_MASK_SVC_PRIMARY & PERM_RIGHT_ENABLE);
     req->svc_desc.nb_att = 4;
-    memcpy(req->svc_desc.uuid, rom_timestamp_resp_svc_uuid, ATT_UUID_128_LEN);
+    memcpy(req->svc_desc.uuid, timestamp_resp_svc_uuid, ATT_UUID_128_LEN);
     
     // Attribute 1: Response characteristic declaration
     req->svc_desc.atts[1].uuid[0] = (ATT_DECL_CHARACTERISTIC & 0xFF);
@@ -355,7 +354,7 @@ static void register_timestamp_response_service(void)
     req->svc_desc.atts[1].max_len = 0;
     
     // Attribute 2: Response characteristic value (NOTIFY)
-    memcpy(req->svc_desc.atts[2].uuid, rom_timestamp_resp_char_uuid, ATT_UUID_128_LEN);
+    memcpy(req->svc_desc.atts[2].uuid, timestamp_resp_char_uuid, ATT_UUID_128_LEN);
     req->svc_desc.atts[2].perm = PERM(NTF, ENABLE);
     req->svc_desc.atts[2].max_len = DEF_TSVC_RESP_CHAR_LEN;
     
@@ -379,6 +378,9 @@ static void register_timestamp_response_service(void)
  */
 static void register_update_service(void)
 {
+    const uint8_t update_svc_uuid[] = DEF_UPDATE_SVC_UUID_128;
+    const uint8_t update_char_uuid[] = DEF_UPDATE_CHAR_UUID_128;
+    
     const uint8_t num_atts = 3; // 1 svc + 1 char_decl + 1 char_val
     
     struct gattm_add_svc_req *req = KE_MSG_ALLOC_DYN(GATTM_ADD_SVC_REQ,
@@ -392,7 +394,7 @@ static void register_update_service(void)
     req->svc_desc.perm = (PERM_MASK_SVC_UUID_LEN & PERM_UUID_128) | 
                          (PERM_MASK_SVC_PRIMARY & PERM_RIGHT_ENABLE);
     req->svc_desc.nb_att = num_atts;
-    memcpy(req->svc_desc.uuid, rom_update_svc_uuid, ATT_UUID_128_LEN);
+    memcpy(req->svc_desc.uuid, update_svc_uuid, ATT_UUID_128_LEN);
     
     // Attribute 1: Characteristic declaration
     req->svc_desc.atts[1].uuid[0] = (ATT_DECL_CHARACTERISTIC & 0xFF);
@@ -401,7 +403,7 @@ static void register_update_service(void)
     req->svc_desc.atts[1].max_len = 0;
     
     // Attribute 2: Characteristic value (WRITE)
-    memcpy(req->svc_desc.atts[2].uuid, rom_update_char_uuid, ATT_UUID_128_LEN);
+    memcpy(req->svc_desc.atts[2].uuid, update_char_uuid, ATT_UUID_128_LEN);
     req->svc_desc.atts[2].perm = PERM(WR, ENABLE) | PERM(WRITE_REQ, ENABLE);
     req->svc_desc.atts[2].max_len = DEF_UPDATE_CHAR_LEN;
     
