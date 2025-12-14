@@ -46,7 +46,7 @@
 #define DEF_TSVC_RESP_CHAR_LEN 20   /* 20-byte chunks (5 timestamps) */
 #define DEF_UPDATE_CHAR_LEN     4   /* 4-byte epoch time */
 
-#define MAX_REMINDERS 5             /* Max 5 reminders (fits in 2 BLE packets: 1 header + 1 data) */
+#define MAX_REMINDERS 3             /* Max 3 reminders (reduced for RAM constraints) */
 
 /* CUSTS1 index enum */
 enum
