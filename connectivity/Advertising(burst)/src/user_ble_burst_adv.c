@@ -245,8 +245,9 @@ static void register_handshake_service(void)
     
     req->svc_desc.start_hdl = 0;
     req->svc_desc.task_id = TASK_APP;
-    req->svc_desc.perm = (PERM_MASK_SVC_UUID_LEN & PERM_UUID_128) | 
-                         (PERM_MASK_SVC_PRIMARY & PERM_RIGHT_ENABLE);
+    // FIX: Use PERM macro to correctly set Primary Service and 128-bit UUID flags
+    // Previous code used bitwise AND (&) which cleared the flags, making services Secondary/16-bit
+    req->svc_desc.perm = PERM(SVC_PRIMARY, ENABLE) | PERM(SVC_UUID_LEN, UUID_128);
     req->svc_desc.nb_att = num_atts;
     memcpy(req->svc_desc.uuid, handshake_svc_uuid, ATT_UUID_128_LEN);
     
@@ -292,8 +293,8 @@ static void register_timestamp_request_service(void)
     
     req->svc_desc.start_hdl = 0;
     req->svc_desc.task_id = TASK_APP;
-    req->svc_desc.perm = (PERM_MASK_SVC_UUID_LEN & PERM_UUID_128) | 
-                         (PERM_MASK_SVC_PRIMARY & PERM_RIGHT_ENABLE);
+    // FIX: Use PERM macro to correctly set Primary Service and 128-bit UUID flags
+    req->svc_desc.perm = PERM(SVC_PRIMARY, ENABLE) | PERM(SVC_UUID_LEN, UUID_128);
     req->svc_desc.nb_att = num_atts;
     memcpy(req->svc_desc.uuid, timestamp_req_svc_uuid, ATT_UUID_128_LEN);
     
@@ -339,8 +340,8 @@ static void register_timestamp_response_service(void)
     
     req->svc_desc.start_hdl = 0;
     req->svc_desc.task_id = TASK_APP;
-    req->svc_desc.perm = (PERM_MASK_SVC_UUID_LEN & PERM_UUID_128) | 
-                         (PERM_MASK_SVC_PRIMARY & PERM_RIGHT_ENABLE);
+    // FIX: Use PERM macro to correctly set Primary Service and 128-bit UUID flags
+    req->svc_desc.perm = PERM(SVC_PRIMARY, ENABLE) | PERM(SVC_UUID_LEN, UUID_128);
     req->svc_desc.nb_att = num_atts;
     memcpy(req->svc_desc.uuid, timestamp_resp_svc_uuid, ATT_UUID_128_LEN);
     
@@ -392,8 +393,8 @@ static void register_update_service(void)
     
     req->svc_desc.start_hdl = 0;
     req->svc_desc.task_id = TASK_APP;
-    req->svc_desc.perm = (PERM_MASK_SVC_UUID_LEN & PERM_UUID_128) | 
-                         (PERM_MASK_SVC_PRIMARY & PERM_RIGHT_ENABLE);
+    // FIX: Use PERM macro to correctly set Primary Service and 128-bit UUID flags
+    req->svc_desc.perm = PERM(SVC_PRIMARY, ENABLE) | PERM(SVC_UUID_LEN, UUID_128);
     req->svc_desc.nb_att = num_atts;
     memcpy(req->svc_desc.uuid, update_svc_uuid, ATT_UUID_128_LEN);
     
