@@ -195,10 +195,10 @@
 #undef AUTO_DATA_LENGTH_NEGOTIATION_UPON_NEW_CONNECTION
 
 /****************************************************************************************************************/
-/* Maximum retention memory in bytes. RESTORED TO ORIGINAL (2048).                                             */
-/* Reducing this was WRONG - it forces memory regions to compress and overlap.                                 */
+/* Maximum retention memory in bytes. Reduced to 1920 to fix overlap with ER_NZI.                               */
+/* Previous value: 2048.                                                                                        */
 /****************************************************************************************************************/
-#define CFG_RET_DATA_SIZE    (2048)
+#define CFG_RET_DATA_SIZE    (1920)
 
 /****************************************************************************************************************/
 /* Maximum uninitialized retained data required by the application.                                             */
