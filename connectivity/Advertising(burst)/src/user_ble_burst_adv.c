@@ -836,9 +836,9 @@ void user_catch_rest_hndl(ke_msg_id_t const msgid,
             service_handles[2] && service_handles[3])
         {
             arch_printf("\n\r[DEBUG] Handshake write handle: %d", service_handles[0] + 2);
-            arch_printf("\n\r[DEBUG] Timestamp REQUEST write handle: %d", timestamp_req_service_start_handle + 2);
+            arch_printf("\n\r[DEBUG] Timestamp REQUEST write handle: %d", service_handles[1] + 2);
             arch_printf("\n\r[DEBUG] Timestamp RESPONSE notify handle: %d", service_handles[2] + 2);
-            arch_printf("\n\r[DEBUG] Update write handle: %d", update_service_start_handle + 2);
+            arch_printf("\n\r[DEBUG] Update write handle: %d", service_handles[3] + 2);
             once = true;
         }
     #endif
