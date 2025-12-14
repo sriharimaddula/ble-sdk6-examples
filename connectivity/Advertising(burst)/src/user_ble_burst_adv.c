@@ -72,6 +72,7 @@ static timer_hnd ts_stream_timer_id __attribute__((section(".bss.")));
 
 /* GATT service handles - non-retained (re-registered on boot) */
 static uint16_t service_handles[4] = {0};
+static uint8_t services_pending = 0;
 
 /* Forward declarations */
 void handle_handshake_write(const uint8_t *data, uint16_t length);
@@ -177,8 +178,8 @@ void user_on_set_dev_config_complete(void)
     #endif
     register_custom_services();
 	
-    // Start advertising after services are registered
-	  start_advertising();
+    // Advertising will be started in GATTM_ADD_SVC_RSP handler
+    // once all services are successfully registered.
 }
 
 /**
@@ -421,6 +422,8 @@ static void register_update_service(void)
  */
 static void register_custom_services(void)
 {
+    services_pending = 4;
+
     #ifdef CFG_PRINTF
         arch_printf("\n\r[GATT] Registering custom services...");
     #endif
@@ -856,6 +859,19 @@ void user_catch_rest_hndl(ke_msg_id_t const msgid,
             #ifdef CFG_PRINTF
                 arch_printf("\n\r[GATT] Service added: start_handle=%d, status=0x%02X", rsp->start_hdl, rsp->status);
             #endif
+
+            // Check if we can start advertising
+            if (services_pending > 0)
+            {
+                services_pending--;
+                if (services_pending == 0)
+                {
+                    #ifdef CFG_PRINTF
+                        arch_printf("\n\r[INIT] All services registered. Starting advertising...");
+                    #endif
+                    start_advertising();
+                }
+            }
             
             if (rsp->status == ATT_ERR_NO_ERROR)
             {
