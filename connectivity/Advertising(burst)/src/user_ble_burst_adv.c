@@ -246,16 +246,16 @@ static void register_handshake_service(void)
     req->svc_desc.nb_att = num_atts;
     memcpy(req->svc_desc.uuid, handshake_svc_uuid, ATT_UUID_128_LEN);
     
-    // Attribute 1: Characteristic declaration
-    req->svc_desc.atts[1].uuid[0] = (ATT_DECL_CHARACTERISTIC & 0xFF);
-    req->svc_desc.atts[1].uuid[1] = ((ATT_DECL_CHARACTERISTIC >> 8) & 0xFF);
-    req->svc_desc.atts[1].perm = PERM(RD, ENABLE);
-    req->svc_desc.atts[1].max_len = 0;
+    // Attribute 0: Characteristic declaration (zero-based indexing)
+    req->svc_desc.atts[0].uuid[0] = (ATT_DECL_CHARACTERISTIC & 0xFF);
+    req->svc_desc.atts[0].uuid[1] = ((ATT_DECL_CHARACTERISTIC >> 8) & 0xFF);
+    req->svc_desc.atts[0].perm = PERM(RD, ENABLE);
+    req->svc_desc.atts[0].max_len = 0;
     
-    // Attribute 2: Characteristic value (WRITE)
-    memcpy(req->svc_desc.atts[2].uuid, handshake_char_uuid, ATT_UUID_128_LEN);
-    req->svc_desc.atts[2].perm = PERM(WR, ENABLE) | PERM(WRITE_REQ, ENABLE);
-    req->svc_desc.atts[2].max_len = DEF_HSVC_CHAR_LEN;
+    // Attribute 1: Characteristic value (WRITE)
+    memcpy(req->svc_desc.atts[1].uuid, handshake_char_uuid, ATT_UUID_128_LEN);
+    req->svc_desc.atts[1].perm = PERM(WR, ENABLE) | PERM(WRITE_REQ, ENABLE);
+    req->svc_desc.atts[1].max_len = DEF_HSVC_CHAR_LEN;
     
     ke_msg_send(req);
     
@@ -289,16 +289,16 @@ static void register_timestamp_request_service(void)
     req->svc_desc.nb_att = num_atts;
     memcpy(req->svc_desc.uuid, timestamp_req_svc_uuid, ATT_UUID_128_LEN);
     
-    // Attribute 1: Request characteristic declaration
-    req->svc_desc.atts[1].uuid[0] = (ATT_DECL_CHARACTERISTIC & 0xFF);
-    req->svc_desc.atts[1].uuid[1] = ((ATT_DECL_CHARACTERISTIC >> 8) & 0xFF);
-    req->svc_desc.atts[1].perm = PERM(RD, ENABLE);
-    req->svc_desc.atts[1].max_len = 0;
+    // Attribute 0: Request characteristic declaration (zero-based indexing)
+    req->svc_desc.atts[0].uuid[0] = (ATT_DECL_CHARACTERISTIC & 0xFF);
+    req->svc_desc.atts[0].uuid[1] = ((ATT_DECL_CHARACTERISTIC >> 8) & 0xFF);
+    req->svc_desc.atts[0].perm = PERM(RD, ENABLE);
+    req->svc_desc.atts[0].max_len = 0;
     
-    // Attribute 2: Request characteristic value (WRITE)
-    memcpy(req->svc_desc.atts[2].uuid, timestamp_req_char_uuid, ATT_UUID_128_LEN);
-    req->svc_desc.atts[2].perm = PERM(WR, ENABLE) | PERM(WRITE_REQ, ENABLE);
-    req->svc_desc.atts[2].max_len = DEF_TSVC_REQ_CHAR_LEN;
+    // Attribute 1: Request characteristic value (WRITE)
+    memcpy(req->svc_desc.atts[1].uuid, timestamp_req_char_uuid, ATT_UUID_128_LEN);
+    req->svc_desc.atts[1].perm = PERM(WR, ENABLE) | PERM(WRITE_REQ, ENABLE);
+    req->svc_desc.atts[1].max_len = DEF_TSVC_REQ_CHAR_LEN;
     
     ke_msg_send(req);
     
@@ -317,37 +317,37 @@ static void register_timestamp_response_service(void)
     const uint8_t timestamp_resp_svc_uuid[] = DEF_TSVC_RESP_SVC_UUID_128;
     const uint8_t timestamp_resp_char_uuid[] = DEF_TSVC_RESP_UUID_128;
     
-    const uint8_t num_atts = 3; // 1 svc + 1 char_decl + 1 char_val + 1 ccc = 4
+    const uint8_t num_atts = 3; // 1 char_decl + 1 char_val + 1 ccc (service implicit)
     
     struct gattm_add_svc_req *req = KE_MSG_ALLOC_DYN(GATTM_ADD_SVC_REQ,
                                                       TASK_GATTM,
                                                       TASK_APP,
                                                       gattm_add_svc_req,
-                                                      4 * sizeof(struct gattm_att_desc));
+                                                      num_atts * sizeof(struct gattm_att_desc));
     
     req->svc_desc.start_hdl = 0;
     req->svc_desc.task_id = TASK_APP;
     req->svc_desc.perm = (PERM_MASK_SVC_UUID_LEN & PERM_UUID_128) | 
                          (PERM_MASK_SVC_PRIMARY & PERM_RIGHT_ENABLE);
-    req->svc_desc.nb_att = 4;
+    req->svc_desc.nb_att = num_atts;
     memcpy(req->svc_desc.uuid, timestamp_resp_svc_uuid, ATT_UUID_128_LEN);
     
-    // Attribute 1: Response characteristic declaration
-    req->svc_desc.atts[1].uuid[0] = (ATT_DECL_CHARACTERISTIC & 0xFF);
-    req->svc_desc.atts[1].uuid[1] = ((ATT_DECL_CHARACTERISTIC >> 8) & 0xFF);
-    req->svc_desc.atts[1].perm = PERM(RD, ENABLE);
-    req->svc_desc.atts[1].max_len = 0;
+    // Attribute 0: Response characteristic declaration (zero-based indexing!)
+    req->svc_desc.atts[0].uuid[0] = (ATT_DECL_CHARACTERISTIC & 0xFF);
+    req->svc_desc.atts[0].uuid[1] = ((ATT_DECL_CHARACTERISTIC >> 8) & 0xFF);
+    req->svc_desc.atts[0].perm = PERM(RD, ENABLE);
+    req->svc_desc.atts[0].max_len = 0;
     
-    // Attribute 2: Response characteristic value (NOTIFY)
-    memcpy(req->svc_desc.atts[2].uuid, timestamp_resp_char_uuid, ATT_UUID_128_LEN);
-    req->svc_desc.atts[2].perm = PERM(NTF, ENABLE);
-    req->svc_desc.atts[2].max_len = DEF_TSVC_RESP_CHAR_LEN;
+    // Attribute 1: Response characteristic value (NOTIFY)
+    memcpy(req->svc_desc.atts[1].uuid, timestamp_resp_char_uuid, ATT_UUID_128_LEN);
+    req->svc_desc.atts[1].perm = PERM(NTF, ENABLE);
+    req->svc_desc.atts[1].max_len = DEF_TSVC_RESP_CHAR_LEN;
     
-    // Attribute 3: CCC descriptor for notifications
-    req->svc_desc.atts[3].uuid[0] = (ATT_DESC_CLIENT_CHAR_CFG & 0xFF);
-    req->svc_desc.atts[3].uuid[1] = ((ATT_DESC_CLIENT_CHAR_CFG >> 8) & 0xFF);
-    req->svc_desc.atts[3].perm = PERM(RD, ENABLE) | PERM(WR, ENABLE) | PERM(WRITE_REQ, ENABLE);
-    req->svc_desc.atts[3].max_len = sizeof(uint16_t);
+    // Attribute 2: CCC descriptor for notifications
+    req->svc_desc.atts[2].uuid[0] = (ATT_DESC_CLIENT_CHAR_CFG & 0xFF);
+    req->svc_desc.atts[2].uuid[1] = ((ATT_DESC_CLIENT_CHAR_CFG >> 8) & 0xFF);
+    req->svc_desc.atts[2].perm = PERM(RD, ENABLE) | PERM(WR, ENABLE) | PERM(WRITE_REQ, ENABLE);
+    req->svc_desc.atts[2].max_len = sizeof(uint16_t);
     
     ke_msg_send(req);
     
@@ -381,16 +381,16 @@ static void register_update_service(void)
     req->svc_desc.nb_att = num_atts;
     memcpy(req->svc_desc.uuid, update_svc_uuid, ATT_UUID_128_LEN);
     
-    // Attribute 1: Characteristic declaration
-    req->svc_desc.atts[1].uuid[0] = (ATT_DECL_CHARACTERISTIC & 0xFF);
-    req->svc_desc.atts[1].uuid[1] = ((ATT_DECL_CHARACTERISTIC >> 8) & 0xFF);
-    req->svc_desc.atts[1].perm = PERM(RD, ENABLE);
-    req->svc_desc.atts[1].max_len = 0;
+    // Attribute 0: Characteristic declaration (zero-based indexing)
+    req->svc_desc.atts[0].uuid[0] = (ATT_DECL_CHARACTERISTIC & 0xFF);
+    req->svc_desc.atts[0].uuid[1] = ((ATT_DECL_CHARACTERISTIC >> 8) & 0xFF);
+    req->svc_desc.atts[0].perm = PERM(RD, ENABLE);
+    req->svc_desc.atts[0].max_len = 0;
     
-    // Attribute 2: Characteristic value (WRITE)
-    memcpy(req->svc_desc.atts[2].uuid, update_char_uuid, ATT_UUID_128_LEN);
-    req->svc_desc.atts[2].perm = PERM(WR, ENABLE) | PERM(WRITE_REQ, ENABLE);
-    req->svc_desc.atts[2].max_len = DEF_UPDATE_CHAR_LEN;
+    // Attribute 1: Characteristic value (WRITE)
+    memcpy(req->svc_desc.atts[1].uuid, update_char_uuid, ATT_UUID_128_LEN);
+    req->svc_desc.atts[1].perm = PERM(WR, ENABLE) | PERM(WRITE_REQ, ENABLE);
+    req->svc_desc.atts[1].max_len = DEF_UPDATE_CHAR_LEN;
     
     ke_msg_send(req);
     
