@@ -38,7 +38,7 @@
 #include "gattm_task.h"
 #include "prf_utils.h"
 #include "attm.h"
-#include "custom_profile/user_custs1_def.h"
+#include "custom_profile/ble_service_defs.h"
 // #include "rtc.h"  // RTC support disabled - add rtc.c to Keil project to enable
 
 
