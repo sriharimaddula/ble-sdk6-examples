@@ -20,15 +20,6 @@ static const uint16_t att_decl_char      = ATT_DECL_CHARACTERISTIC;
 static const uint16_t att_desc_cfg       = ATT_DESC_CLIENT_CHAR_CFG;
 static const uint16_t att_desc_user_desc = ATT_DESC_CHAR_USER_DESCRIPTION;
 
-/* Timestamp service UUIDs */
-static const att_svc_desc128_t tsvc_svc = DEF_TSVC_UUID_128;
-static const uint8_t TSVC_REQ_UUID_128[ATT_UUID_128_LEN]  = DEF_TSVC_REQ_UUID_128;
-static const uint8_t TSVC_RESP_UUID_128[ATT_UUID_128_LEN] = DEF_TSVC_RESP_UUID_128;
-
-/* Update service UUIDs */
-static const att_svc_desc128_t usvc_svc = DEF_UPDATE_SVC_UUID_128;
-static const uint8_t USVC_UPDATE_UUID_128[ATT_UUID_128_LEN] = DEF_UPDATE_CHAR_UUID_128;
-
 /* Services list and sizes */
 /* NOTE: Custom profile database disabled - using direct GATT messaging instead.
  * These definitions are kept for reference but not used at runtime. We handle

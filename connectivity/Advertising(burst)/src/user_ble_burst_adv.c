@@ -59,30 +59,21 @@
 static timer_hnd adv_burst_timer_id		__attribute__((section(".bss."))); // @RETENTION MEMORY
 static uint16_t adv_period_ticks      __attribute__((section(".bss."))); // @RETENTION MEMORY
 
-/* Advertisement burst counter */
-static uint32_t advert_count = 0;
-
-/* Advertisement data buffer with counter byte (manufacturer data) */
+/* Advertisement data buffer - reduced to minimum needed (only 5 bytes data) */
+/* Advertisement data buffer - reduced to minimum needed (only 5 bytes data) */
 /* Format: length(1) + type(1) + company_id(2) + counter(1) = 5 bytes total
    \x04 = length (4 bytes follow)
    \xFF = manufacturer specific data type
    \x4C\x00 = Apple company ID (little endian)
    counter byte will be updated dynamically */
-static uint8_t adv_data_buf[31];
+static uint8_t adv_data_buf[10];  // Reduced from 31 (saves 21 bytes)
 static uint8_t adv_data_len = 0;
 
 /* Device state storage (reminders, system time) */
 static device_state_t device_state __attribute__((section(".bss."))) = {0};
 
-/* Streaming state for timestamp notifications */
-static uint32_t ts_stream_idx = 0; /* next index to send */
-static timer_hnd ts_stream_timer_id __attribute__((section(".bss.")));
-
-/* GATT service handle tracking (set when service is registered) */
-static uint16_t handshake_service_start_handle = 0;
-static uint16_t timestamp_req_service_start_handle = 0;
-static uint16_t timestamp_resp_service_start_handle = 0;
-static uint16_t update_service_start_handle = 0;
+/* GATT service handle tracking - consolidated into array (saves 2 bytes) */
+static uint16_t service_handles[4] = {0};  // [0]=handshake, [1]=ts_req, [2]=ts_resp, [3]=update
 
 /* Forward declarations */
 void handle_handshake_write(const uint8_t *data, uint16_t length);
@@ -834,10 +825,10 @@ void user_catch_rest_hndl(ke_msg_id_t const msgid,
         
         // Debug: Show which service handles are active
         static bool once = false;
-        if (!once && handshake_service_start_handle && timestamp_req_service_start_handle && 
-            timestamp_resp_service_start_handle && update_service_start_handle)
+        if (!once && service_handles[0] && service_handles[1] && 
+            service_handles[2] && service_handles[3])
         {
-            arch_printf("\n\r[DEBUG] Handshake write handle: %d", handshake_service_start_handle + 2);
+            arch_printf("\n\r[DEBUG] Handshake write handle: %d", service_handles[0] + 2);
             arch_printf("\n\r[DEBUG] Timestamp REQUEST write handle: %d", timestamp_req_service_start_handle + 2);
             arch_printf("\n\r[DEBUG] Timestamp RESPONSE notify handle: %d", timestamp_resp_service_start_handle + 2);
             arch_printf("\n\r[DEBUG] Update write handle: %d", update_service_start_handle + 2);
@@ -858,32 +849,32 @@ void user_catch_rest_hndl(ke_msg_id_t const msgid,
             if (rsp->status == ATT_ERR_NO_ERROR)
             {
                 // Store service handles in order: handshake, timestamp_req, timestamp_resp, update
-                if (handshake_service_start_handle == 0)
+                if (service_handles[0] == 0)
                 {
-                    handshake_service_start_handle = rsp->start_hdl;
+                    service_handles[0] = rsp->start_hdl;
                     #ifdef CFG_PRINTF
-                        arch_printf("\n\r[GATT] Handshake service registered at handle %d", handshake_service_start_handle);
+                        arch_printf("\n\r[GATT] Handshake service registered at handle %d", service_handles[0]);
                     #endif
                 }
-                else if (timestamp_req_service_start_handle == 0)
+                else if (service_handles[1] == 0)
                 {
-                    timestamp_req_service_start_handle = rsp->start_hdl;
+                    service_handles[1] = rsp->start_hdl;
                     #ifdef CFG_PRINTF
-                        arch_printf("\n\r[GATT] Timestamp REQUEST service registered at handle %d", timestamp_req_service_start_handle);
+                        arch_printf("\n\r[GATT] Timestamp REQUEST service registered at handle %d", service_handles[1]);
                     #endif
                 }
-                else if (timestamp_resp_service_start_handle == 0)
+                else if (service_handles[2] == 0)
                 {
-                    timestamp_resp_service_start_handle = rsp->start_hdl;
+                    service_handles[2] = rsp->start_hdl;
                     #ifdef CFG_PRINTF
-                        arch_printf("\n\r[GATT] Timestamp RESPONSE service registered at handle %d", timestamp_resp_service_start_handle);
+                        arch_printf("\n\r[GATT] Timestamp RESPONSE service registered at handle %d", service_handles[2]);
                     #endif
                 }
-                else if (update_service_start_handle == 0)
+                else if (service_handles[3] == 0)
                 {
-                    update_service_start_handle = rsp->start_hdl;
+                    service_handles[3] = rsp->start_hdl;
                     #ifdef CFG_PRINTF
-                        arch_printf("\n\r[GATT] Update service registered at handle %d", update_service_start_handle);
+                        arch_printf("\n\r[GATT] Update service registered at handle %d", service_handles[3]);
                     #endif
                 }
             }
@@ -904,8 +895,8 @@ void user_catch_rest_hndl(ke_msg_id_t const msgid,
             #endif
 
             // Ignore writes if services not yet registered (spurious messages during connection)
-            if (!handshake_service_start_handle || !timestamp_req_service_start_handle || 
-                !timestamp_resp_service_start_handle || !update_service_start_handle)
+            if (!service_handles[0] || !service_handles[1] || 
+                !service_handles[2] || !service_handles[3])
             {
                 #ifdef CFG_PRINTF
                     arch_printf("\n\r[GATT] WARNING: Write received before services registered, ignoring");
@@ -927,10 +918,10 @@ void user_catch_rest_hndl(ke_msg_id_t const msgid,
             // Timestamp REQUEST service: [0]=svc, [1]=char_decl, [2]=val
             // Timestamp RESPONSE service: [0]=svc, [1]=char_decl, [2]=val, [3]=ccc
             // Update service: [0]=svc, [1]=char_decl, [2]=val
-            uint16_t handshake_val_handle = handshake_service_start_handle + 2;
-            uint16_t timestamp_req_handle = timestamp_req_service_start_handle + 2;
-            uint16_t timestamp_resp_handle = timestamp_resp_service_start_handle + 2;
-            uint16_t update_val_handle = update_service_start_handle + 2;
+            uint16_t handshake_val_handle = service_handles[0] + 2;
+            uint16_t timestamp_req_handle = service_handles[1] + 2;
+            uint16_t timestamp_resp_handle = service_handles[2] + 2;
+            uint16_t update_val_handle = service_handles[3] + 2;
 
             #ifdef CFG_PRINTF
                 arch_printf("\n\r[DEBUG] Write handle check: received=%d, expected_handshake=%d", 
