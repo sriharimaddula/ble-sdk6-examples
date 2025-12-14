@@ -346,7 +346,7 @@ static void register_timestamp_response_service(void)
     req->svc_desc.perm = (PERM_MASK_SVC_UUID_LEN & PERM_UUID_128) | 
                          (PERM_MASK_SVC_PRIMARY & PERM_RIGHT_ENABLE);
     req->svc_desc.nb_att = 4;
-    memcpy(req->svc_desc.uuid, timestamp_resp_svc_uuid, ATT_UUID_128_LEN);
+    memcpy(req->svc_desc.uuid, rom_timestamp_resp_svc_uuid, ATT_UUID_128_LEN);
     
     // Attribute 1: Response characteristic declaration
     req->svc_desc.atts[1].uuid[0] = (ATT_DECL_CHARACTERISTIC & 0xFF);
