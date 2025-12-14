@@ -59,25 +59,19 @@
 static timer_hnd adv_burst_timer_id		__attribute__((section(".bss."))); // @RETENTION MEMORY
 static uint16_t adv_period_ticks      __attribute__((section(".bss."))); // @RETENTION MEMORY
 
-/* Advertisement data buffer - reduced to minimum needed (only 5 bytes data) */
-/* Advertisement data buffer - reduced to minimum needed (only 5 bytes data) */
-/* Format: length(1) + type(1) + company_id(2) + counter(1) = 5 bytes total
-   \x04 = length (4 bytes follow)
-   \xFF = manufacturer specific data type
-   \x4C\x00 = Apple company ID (little endian)
-   counter byte will be updated dynamically */
-static uint8_t adv_data_buf[6];  // Further reduced from 10 (saves 4 more bytes)
+/* Advertisement data buffer - non-retained (rebuilt on each boot) */
+static uint8_t adv_data_buf[9];  // Base adv (4) + mfg data (5)
 static uint8_t adv_data_len = 0;
 
-/* Device state storage (reminders, system time) */
+/* Device state storage (reminders, system time) - RETAINED */
 static device_state_t device_state __attribute__((section(".bss."))) = {0};
 
-/* Streaming state for timestamp notifications */
-static uint32_t ts_stream_idx = 0; /* next index to send */
+/* Streaming state - non-retained (re-initialized on connection) */
+static uint32_t ts_stream_idx = 0;
 static timer_hnd ts_stream_timer_id __attribute__((section(".bss.")));
 
-/* GATT service handle tracking - consolidated into array (saves 2 bytes) */
-static uint16_t service_handles[4] = {0};  // [0]=handshake, [1]=ts_req, [2]=ts_resp, [3]=update
+/* GATT service handles - non-retained (re-registered on boot) */
+static uint16_t service_handles[4] = {0};
 
 /* Forward declarations */
 void handle_handshake_write(const uint8_t *data, uint16_t length);

@@ -200,7 +200,7 @@
 /* Maximum retention memory in bytes. The base address of the retention data is calculated from the selected    */
 /* size.                                                                                                        */
 /****************************************************************************************************************/
-#define CFG_RET_DATA_SIZE    (2048)
+#define CFG_RET_DATA_SIZE    (1536)
 
 /****************************************************************************************************************/
 /* Maximum uninitialized retained data required by the application.                                             */
