@@ -1058,15 +1058,6 @@ void user_catch_rest_hndl(ke_msg_id_t const msgid,
             #endif
         } break;
 
-        case GATTC_CMP_EVT:
-        {
-            struct gattc_cmp_evt const *evt = (struct gattc_cmp_evt const *)(param);
-            #ifdef CFG_PRINTF
-                arch_printf("\n\r[GATT] Completion Event: operation=0x%02X, status=0x%02X", 
-                           evt->operation, evt->status);
-            #endif
-        } break;
-
         default:
         {
             #ifdef CFG_PRINTF
