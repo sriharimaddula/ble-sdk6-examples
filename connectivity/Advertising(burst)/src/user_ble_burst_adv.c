@@ -39,7 +39,7 @@
 #include "prf_utils.h"
 #include "attm.h"
 #include "custom_profile/ble_service_defs.h"
-// #include "rtc.h"  // RTC support disabled - add rtc.c to Keil project to enable
+#include "rtc.h"  // RTC support enabled
 
 
 /**
@@ -80,6 +80,7 @@ void handle_timestamp_request(uint32_t from_index);
 void handle_update_write(const uint8_t *data, uint16_t length);
 void notify_timestamp_chunk(void);
 static void register_custom_services(void);
+static void epoch_to_rtc(uint32_t epoch, rtc_time_t *t, rtc_calendar_t *c);
 
 /*
  * FUNCTION DEFINITIONS
@@ -523,9 +524,22 @@ void handle_handshake_write(const uint8_t *data, uint16_t length)
                                     ((uint32_t)data[6] << 8)  |
                                     ((uint32_t)data[7]);
         
+        /* Initialize RTC with received timestamp */
+        rtc_time_t time;
+        rtc_calendar_t calendar;
+        rtc_config_t config = { .hour_clk_mode = RTC_HOUR_MODE_24H, .keep_rtc = 0 };
+        
+        epoch_to_rtc(device_state.system_time, &time, &calendar);
+        
+        rtc_configure(&time, &calendar, &config);
+        rtc_time_start();
+        
         #ifdef CFG_PRINTF
             arch_printf("\n\r[HANDSHAKE] Reminder count: %u, System time: %u", 
                        expected_reminder_count, device_state.system_time);
+            arch_printf("\n\r[RTC] Set to: %04d-%02d-%02d %02d:%02d:%02d",
+                        calendar.year, calendar.month, calendar.mday,
+                        time.hour, time.minute, time.sec);
         #endif
         
         device_state.reminder_count = 0;
@@ -759,8 +773,8 @@ void notify_timestamp_chunk(void)
     }
 }
 
-/* RTC support disabled - to enable, add sdk/platform/driver/rtc/rtc.c to Keil project */
-#if 0
+/* RTC support enabled */
+#if 1
 /**
  ****************************************************************************************
  * @brief Convert Unix epoch (seconds) to RTC time/calendar structures (UTC)
@@ -812,7 +826,7 @@ static void epoch_to_rtc(uint32_t epoch, rtc_time_t *t, rtc_calendar_t *c)
     /* tm_wday: 0 = Sunday. 1970-01-01 was a Thursday (4). */
     c->wday = (uint8_t)(( (epoch / 86400u) + 4u) % 7u);
 }
-#endif  /* RTC disabled */
+#endif  /* RTC enabled */
 
 /**
  ****************************************************************************************
