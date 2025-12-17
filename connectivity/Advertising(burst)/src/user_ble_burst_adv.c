@@ -503,7 +503,7 @@ void user_on_disconnect(struct gapc_disconnect_ind const *param)
 void handle_handshake_write(const uint8_t *data, uint16_t length)
 {
     static uint32_t expected_reminder_count = 0;
-    static uint32_t reminders_received = 0;
+    static uint32_t reminders_processed = 0; // Total reminders processed (stored + skipped)
     static bool first_packet = true;
     
     #ifdef CFG_PRINTF
@@ -528,20 +528,11 @@ void handle_handshake_write(const uint8_t *data, uint16_t length)
                        expected_reminder_count, device_state.system_time);
         #endif
         
-        // Limit to MAX_REMINDERS
-        if (expected_reminder_count > MAX_REMINDERS)
-        {
-            expected_reminder_count = MAX_REMINDERS;
-            #ifdef CFG_PRINTF
-                arch_printf("\n\r[HANDSHAKE] WARNING: Reminder count limited to %d", MAX_REMINDERS);
-            #endif
-        }
-        
         device_state.reminder_count = 0;
-        reminders_received = 0;
+        reminders_processed = 0;
         first_packet = false;
         
-        // If no reminders expected, we're done
+        // If no reminders expected, we're done immediately
         if (expected_reminder_count == 0)
         {
             device_state.handshake_complete = true;
@@ -556,42 +547,49 @@ void handle_handshake_write(const uint8_t *data, uint16_t length)
         // Subsequent packets: parse reminder timestamps (minutes since midnight, 4 bytes each)
         uint16_t offset = 0;
         
-        while (offset + 4 <= length && reminders_received < expected_reminder_count)
+        while (offset + 4 <= length && reminders_processed < expected_reminder_count)
         {
             uint32_t minutes_since_midnight = ((uint32_t)data[offset] << 24) |
                                                ((uint32_t)data[offset + 1] << 16) |
                                                ((uint32_t)data[offset + 2] << 8)  |
                                                ((uint32_t)data[offset + 3]);
             
-            // Validate minutes (0-1439 for 24 hours)
-            if (minutes_since_midnight < 1440)
+            // Only store if we have space, but ALWAYS increment processed count
+            if (device_state.reminder_count < MAX_REMINDERS)
             {
-                if (device_state.reminder_count < MAX_REMINDERS)
+                // Validate minutes (0-1439 for 24 hours)
+                if (minutes_since_midnight < 1440)
                 {
                     device_state.reminders[device_state.reminder_count].minutes_since_midnight = 
                         (uint16_t)minutes_since_midnight;
                     device_state.reminder_count++;
                 }
             }
+            else
+            {
+                #ifdef CFG_PRINTF
+                    // arch_printf("\n\r[HANDSHAKE] Skipping reminder (storage full)");
+                #endif
+            }
             
-            reminders_received++;
+            reminders_processed++;
             offset += 4;
             
             #ifdef CFG_PRINTF
                 uint8_t hour = minutes_since_midnight / 60;
                 uint8_t minute = minutes_since_midnight % 60;
                 arch_printf("\n\r[HANDSHAKE] Reminder %u: %02d:%02d", 
-                           reminders_received, hour, minute);
+                           reminders_processed, hour, minute);
             #endif
         }
         
-        // Check if all reminders received
-        if (reminders_received >= expected_reminder_count)
+        // Check if we have received ALL expected reminders
+        if (reminders_processed >= expected_reminder_count)
         {
             device_state.handshake_complete = true;
-            first_packet = true;
+            first_packet = true; // Reset for next handshake
             #ifdef CFG_PRINTF
-                arch_printf("\n\r[HANDSHAKE] Complete - %u reminders stored", device_state.reminder_count);
+                arch_printf("\n\r[HANDSHAKE] Complete. Stored %d reminders.", device_state.reminder_count);
             #endif
         }
     }
