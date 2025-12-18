@@ -89,6 +89,13 @@ i.e.
 #define UUID_UPDATE_SERVICE_ID           0xA1A1A1A5
 
 /*
+ * GLOBAL VARIABLES
+ ****************************************************************************************
+ */
+#include "custom_profile/ble_service_defs.h"
+extern device_state_t device_state;
+
+/*
  * FUNCTION DECLARATIONS
  ****************************************************************************************
  */

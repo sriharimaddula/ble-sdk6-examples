@@ -40,6 +40,7 @@
 #include "attm.h"
 #include "custom_profile/ble_service_defs.h"
 #include "rtc.h"  // RTC support enabled
+#include "user_rtc_app.h"
 
 
 /**
@@ -64,7 +65,7 @@ static uint8_t adv_data_buf[9];  // Base adv (4) + mfg data (5)
 static uint8_t adv_data_len = 0;
 
 /* Device state storage (reminders, system time) - RETAINED */
-static device_state_t device_state __attribute__((section(".bss."))) = {0};
+device_state_t device_state __attribute__((section(".bss."))) = {0};
 
 /* Streaming state - non-retained (re-initialized on connection) */
 static uint32_t ts_stream_idx = 0;
@@ -77,10 +78,6 @@ static uint8_t services_pending = 0;
 /* Forward declarations */
 void handle_handshake_write(const uint8_t *data, uint16_t length);
 void handle_timestamp_request(uint32_t from_index);
-void handle_update_write(const uint8_t *data, uint16_t length);
-void notify_timestamp_chunk(void);
-static void register_custom_services(void);
-static void epoch_to_rtc(uint32_t epoch, rtc_time_t *t, rtc_calendar_t *c);
 
 /*
  * FUNCTION DEFINITIONS
@@ -524,22 +521,12 @@ void handle_handshake_write(const uint8_t *data, uint16_t length)
                                     ((uint32_t)data[6] << 8)  |
                                     ((uint32_t)data[7]);
         
-        /* Initialize RTC with received timestamp */
-        rtc_time_t time;
-        rtc_calendar_t calendar;
-        rtc_config_t config = { .hour_clk_mode = RTC_HOUR_MODE_24H, .keep_rtc = 0 };
-        
-        epoch_to_rtc(device_state.system_time, &time, &calendar);
-        
-        rtc_configure(&time, &calendar, &config);
-        rtc_time_start();
+        /* Initialize RTC with received timestamp using new module */
+        user_rtc_set_time(device_state.system_time);
         
         #ifdef CFG_PRINTF
             arch_printf("\n\r[HANDSHAKE] Reminder count: %u, System time: %u", 
                        expected_reminder_count, device_state.system_time);
-            arch_printf("\n\r[RTC] Set to: %04d-%02d-%02d %02d:%02d:%02d",
-                        calendar.year, calendar.month, calendar.mday,
-                        time.hour, time.minute, time.sec);
         #endif
         
         device_state.reminder_count = 0;
@@ -602,6 +589,10 @@ void handle_handshake_write(const uint8_t *data, uint16_t length)
         {
             device_state.handshake_complete = true;
             first_packet = true; // Reset for next handshake
+            
+            // Schedule the first alarm
+            user_rtc_schedule_next_alarm();
+            
             #ifdef CFG_PRINTF
                 arch_printf("\n\r[HANDSHAKE] Complete. Stored %d reminders.", device_state.reminder_count);
             #endif
@@ -631,6 +622,12 @@ void handle_update_write(const uint8_t *data, uint16_t length)
                               ((uint32_t)data[3]);
         
         device_state.system_time = new_epoch;
+        
+        // Update RTC
+        user_rtc_set_time(new_epoch);
+        
+        // Re-schedule alarm based on new time
+        user_rtc_schedule_next_alarm();
         
         #ifdef CFG_PRINTF
             arch_printf("\n\r[UPDATE] Clock update: epoch=%u", new_epoch);
@@ -773,60 +770,7 @@ void notify_timestamp_chunk(void)
     }
 }
 
-/* RTC support enabled */
-#if 1
-/**
- ****************************************************************************************
- * @brief Convert Unix epoch (seconds) to RTC time/calendar structures (UTC)
- *
- * @param[in] epoch  Unix epoch seconds
- * @param[out] t     rtc_time_t pointer to populate (hour,min,sec,hsec)
- * @param[out] c     rtc_calendar_t pointer to populate (year,month,mday,wday)
- *
- * @note Simple conversion (UTC) sufficient for device RTC set from remote epoch.
- ****************************************************************************************
- */
-static void epoch_to_rtc(uint32_t epoch, rtc_time_t *t, rtc_calendar_t *c)
-{
-    uint32_t days = epoch / 86400u;
-    uint32_t rem = epoch % 86400u;
 
-    t->hour = rem / 3600u;
-    t->minute = (rem % 3600u) / 60u;
-    t->sec = rem % 60u;
-    t->hsec = 0; /* sub-second resolution not provided */
-
-    /* Compute year */
-    uint32_t year = 1970;
-    while (1) {
-        uint32_t isleap = ((year % 4 == 0 && year % 100 != 0) || (year % 400 == 0));
-        uint32_t days_in_year = 365 + isleap;
-        if (days < days_in_year) break;
-        days -= days_in_year;
-        year++;
-    }
-
-    /* Month lengths for the computed year */
-    const uint8_t month_days_norm[12] = {31,28,31,30,31,30,31,31,30,31,30,31};
-    uint8_t month = 0;
-    for (int m = 0; m < 12; m++) {
-        uint8_t mdays = month_days_norm[m];
-        if (m == 1) { /* February */
-            uint32_t isleap = ((year % 4 == 0 && year % 100 != 0) || (year % 400 == 0));
-            if (isleap) mdays = 29;
-        }
-        if (days < mdays) { month = m + 1; break; }
-        days -= mdays;
-    }
-
-    c->year = (uint16_t)year;
-    c->month = month;
-    c->mday = (uint8_t)(days + 1);
-
-    /* tm_wday: 0 = Sunday. 1970-01-01 was a Thursday (4). */
-    c->wday = (uint8_t)(( (epoch / 86400u) + 4u) % 7u);
-}
-#endif  /* RTC enabled */
 
 /**
  ****************************************************************************************
