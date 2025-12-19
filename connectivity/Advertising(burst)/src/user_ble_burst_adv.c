@@ -78,6 +78,7 @@ static uint8_t services_pending = 0;
 /* Forward declarations */
 void handle_handshake_write(const uint8_t *data, uint16_t length);
 void handle_timestamp_request(uint32_t from_index);
+static void register_custom_services(void);
 
 /*
  * FUNCTION DEFINITIONS
