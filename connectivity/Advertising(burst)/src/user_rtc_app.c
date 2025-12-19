@@ -174,9 +174,11 @@ static void rtc_interrupt_handler(uint8_t event)
     if (event & RTC_INTR_ALRM)
     {
         // 1. Wake up the BLE core if it's sleeping
+#if !defined (__DA14531__)
         if (GetBits16(SYS_STAT_REG, PER_IS_DOWN)) {
             periph_init();
         }
+#endif
 
         // 2. Force BLE Wakeup
         arch_ble_force_wakeup();
