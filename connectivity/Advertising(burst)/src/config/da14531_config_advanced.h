@@ -95,9 +95,10 @@
 /* Original code had these commented = SDK dynamically sizes heaps based on actual usage                       */
 /* Forcing fixed sizes caused RAM overflow. Trust the SDK's runtime calculation.                               */
 /****************************************************************************************************************/
-// #define DB_HEAP_SZ              1024
+#define DB_HEAP_SZ              512
 // #define ENV_HEAP_SZ             4928
 // #define MSG_HEAP_SZ             6880
+#define NON_RET_HEAP_SZ         512
 // #define NON_RET_HEAP_SZ         2048
 
 /****************************************************************************************************************/
@@ -199,7 +200,7 @@
 /* Original: 2048. Reduced to 1024 to give maximum room for ER_NZI (code/heap).                                */
 /* Application uses < 100 bytes of explicit retained data, so 1024 is safe.                                    */
 /****************************************************************************************************************/
-#define CFG_RET_DATA_SIZE    (1024)
+#define CFG_RET_DATA_SIZE    (512)
 
 /****************************************************************************************************************/
 /* Maximum uninitialized retained data required by the application.                                             */
