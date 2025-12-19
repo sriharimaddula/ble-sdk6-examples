@@ -829,6 +829,11 @@
               <FilePath>.\..\..\..\..\..\\sdk\platform\driver\gpio\gpio.c</FilePath>
             </File>
             <File>
+              <FileName>rtc.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\..\..\..\..\..\\sdk\platform\driver\rtc\rtc.c</FilePath>
+            </File>
+            <File>
               <FileName>battery.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\..\..\..\..\..\\sdk\platform\driver\battery\battery.c</FilePath>
@@ -1438,6 +1443,11 @@
               <FileName>user_ble_burst_adv.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\src\user_ble_burst_adv.c</FilePath>
+            </File>
+            <File>
+              <FileName>user_rtc_app.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\src\user_rtc_app.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -2269,6 +2279,11 @@
               <FilePath>.\..\..\..\..\..\\sdk\platform\driver\gpio\gpio.c</FilePath>
             </File>
             <File>
+              <FileName>rtc.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\..\..\..\..\..\\sdk\platform\driver\rtc\rtc.c</FilePath>
+            </File>
+            <File>
               <FileName>battery.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\..\..\..\..\..\\sdk\platform\driver\battery\battery.c</FilePath>
@@ -2878,6 +2893,11 @@
               <FileName>user_ble_burst_adv.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\src\user_ble_burst_adv.c</FilePath>
+            </File>
+            <File>
+              <FileName>user_rtc_app.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\src\user_rtc_app.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -3607,6 +3627,11 @@
               <FilePath>.\..\..\..\..\..\\sdk\platform\driver\gpio\gpio.c</FilePath>
             </File>
             <File>
+              <FileName>rtc.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\..\..\..\..\..\\sdk\platform\driver\rtc\rtc.c</FilePath>
+            </File>
+            <File>
               <FileName>battery.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\..\..\..\..\..\\sdk\platform\driver\battery\battery.c</FilePath>
@@ -4216,6 +4241,11 @@
               <FileName>user_ble_burst_adv.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\src\user_ble_burst_adv.c</FilePath>
+            </File>
+            <File>
+              <FileName>user_rtc_app.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\src\user_rtc_app.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -4945,6 +4975,11 @@
               <FilePath>.\..\..\..\..\..\\sdk\platform\driver\gpio\gpio.c</FilePath>
             </File>
             <File>
+              <FileName>rtc.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\..\..\..\..\..\\sdk\platform\driver\rtc\rtc.c</FilePath>
+            </File>
+            <File>
               <FileName>battery.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\..\..\..\..\..\\sdk\platform\driver\battery\battery.c</FilePath>
@@ -5554,6 +5589,11 @@
               <FileName>user_ble_burst_adv.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\src\user_ble_burst_adv.c</FilePath>
+            </File>
+            <File>
+              <FileName>user_rtc_app.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\src\user_rtc_app.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -6283,6 +6323,11 @@
               <FilePath>.\..\..\..\..\..\\sdk\platform\driver\gpio\gpio.c</FilePath>
             </File>
             <File>
+              <FileName>rtc.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\..\..\..\..\..\\sdk\platform\driver\rtc\rtc.c</FilePath>
+            </File>
+            <File>
               <FileName>battery.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\..\..\..\..\..\\sdk\platform\driver\battery\battery.c</FilePath>
@@ -6892,6 +6937,11 @@
               <FileName>user_ble_burst_adv.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\src\user_ble_burst_adv.c</FilePath>
+            </File>
+            <File>
+              <FileName>user_rtc_app.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\src\user_rtc_app.c</FilePath>
             </File>
           </Files>
         </Group>
