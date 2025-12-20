@@ -36,6 +36,15 @@
 
 #include "da1458x_stack_config.h"
 
+// Size Optimizations to fit CFG_PRINTF within 32KB Keil limit
+#undef CFG_ALLROLES
+#define CFG_PERIPHERAL      1
+#define CFG_BROADCASTER     1
+#undef CFG_CON
+#define CFG_CON             1
+#undef CFG_SECURITY_ON
+#undef CFG_GTL
+
 /****************************************************************************************************************/
 /* Low Power clock selection.                                                                                   */
 /*      -LP_CLK_XTAL32      External XTAL32K oscillator                                                         */
