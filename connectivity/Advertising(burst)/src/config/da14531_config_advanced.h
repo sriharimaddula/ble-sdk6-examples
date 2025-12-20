@@ -96,8 +96,8 @@
 /* Forcing fixed sizes caused RAM overflow. Trust the SDK's runtime calculation.                               */
 /****************************************************************************************************************/
 #define DB_HEAP_SZ              512
-#define ENV_HEAP_SZ             2048
-#define MSG_HEAP_SZ             4096
+#define ENV_HEAP_SZ             1024
+#define MSG_HEAP_SZ             2048
 #define NON_RET_HEAP_SZ         512
 // #define NON_RET_HEAP_SZ         2048
 
@@ -149,7 +149,7 @@
 /*             supportedMaxTxTime = (supportedMaxTxOctets + 11 + 3 ) * 8                                        */
 /*         Range: 328 - 2120 usec.                                                                              */
 /****************************************************************************************************************/
-#define CFG_MAX_TX_PACKET_LENGTH        (251)
+#define CFG_MAX_TX_PACKET_LENGTH        (27)
 
 /****************************************************************************************************************/
 /* Maximum supported RX data packet length (supportedMaxRxOctets value, as defined in 4.2 Specification).       */
@@ -161,7 +161,7 @@
 /*             supportedMaxRxTime = (supportedMaxRxOctets + 11 + 3 ) * 8                                        */
 /*         Range: 328 - 2120 usec.                                                                              */
 /****************************************************************************************************************/
-#define CFG_MAX_RX_PACKET_LENGTH        (251)
+#define CFG_MAX_RX_PACKET_LENGTH        (27)
 
 /****************************************************************************************************************/
 /* Select external application/host transport layer:                                                            */
