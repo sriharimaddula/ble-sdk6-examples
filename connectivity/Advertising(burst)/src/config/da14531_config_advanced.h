@@ -68,7 +68,7 @@
 /* Enables True Random Number Generator. A true random number, generated at system initialization, is used to   */
 /* seed any random number generator (C standard library, ChaCha20, etc.).                                       */
 /****************************************************************************************************************/
-#define CFG_TRNG
+#undef CFG_TRNG
 
 /****************************************************************************************************************/
 /* Secure connections support.                                                                                  */
@@ -87,7 +87,7 @@
 /****************************************************************************************************************/
 /* Uses ChaCha20 random number generator instead of the C standard library random number generator.             */
 /****************************************************************************************************************/
-#define CFG_USE_CHACHA20_RAND
+#undef CFG_USE_CHACHA20_RAND
 
 /****************************************************************************************************************/
 /* Custom heap sizes                                                                                            */

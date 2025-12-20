@@ -54,7 +54,7 @@
 /****************************************************************************************************************/
 /* Enables WatchDog timer.                                                                                      */
 /****************************************************************************************************************/
-#define CFG_WDOG
+#undef CFG_WDOG
 
 /****************************************************************************************************************/
 /* Watchdog timer behavior in production mode:                                                                  */
@@ -89,7 +89,7 @@
 /* If CFG_PRINTF_UART2 is defined, then serial interface logging mechanism is implented using UART2, else UART1 */
 /* will be used.                                                                                                */
 /****************************************************************************************************************/
-// #define CFG_PRINTF
+#define CFG_PRINTF
 #ifdef CFG_PRINTF
     #define CFG_PRINTF_UART2
 #endif
