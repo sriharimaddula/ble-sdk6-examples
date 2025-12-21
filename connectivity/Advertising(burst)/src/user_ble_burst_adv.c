@@ -78,6 +78,7 @@ static uint8_t services_pending = 0;
 /* Forward declarations */
 void handle_handshake_write(const uint8_t *data, uint16_t length);
 void handle_timestamp_request(uint32_t from_index);
+void record_timestamp(void);
 static void register_custom_services(void);
 
 /*
@@ -594,6 +595,9 @@ void handle_handshake_write(const uint8_t *data, uint16_t length)
             // Schedule the first alarm
             user_rtc_schedule_next_alarm();
             
+            // Record timestamp of successful handshake
+            record_timestamp();
+            
             #ifdef CFG_PRINTF
                 arch_printf("\n\r[HANDSHAKE] Complete. Stored %d reminders.", device_state.reminder_count);
             #endif
@@ -629,6 +633,9 @@ void handle_update_write(const uint8_t *data, uint16_t length)
         
         // Re-schedule alarm based on new time
         user_rtc_schedule_next_alarm();
+        
+        // Record timestamp of clock update
+        record_timestamp();
         
         #ifdef CFG_PRINTF
             arch_printf("\n\r[UPDATE] Clock update: epoch=%u", new_epoch);
@@ -996,7 +1003,6 @@ void user_catch_rest_hndl(ke_msg_id_t const msgid,
             #endif
         } break;
         
-        case 0x0E11:  // GATTC_READ_REQ_IND (explicit hex value)
         case GATTC_READ_REQ_IND:
         {
             struct gattc_read_req_ind const *req = (struct gattc_read_req_ind const *)(param);
