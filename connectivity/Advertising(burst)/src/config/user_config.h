@@ -39,6 +39,9 @@
  ****************************************************************************************
  */
 
+#include "da1458x_config_basic.h"
+#include "smpm.h"
+#include "smpc.h"
 #include "app_user_config.h"
 #include "arch_api.h"
 #include "app_default_handlers.h"
