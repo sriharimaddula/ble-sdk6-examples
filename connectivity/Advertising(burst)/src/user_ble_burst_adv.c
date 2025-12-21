@@ -493,6 +493,18 @@ void user_on_disconnect(struct gapc_disconnect_ind const *param)
 
 /**
  ****************************************************************************************
+ * @brief Record timestamp of successful operation.
+ ****************************************************************************************
+ */
+void record_timestamp(void)
+{
+    #ifdef CFG_PRINTF
+    arch_printf("\n\r[TIMESTAMP] Recorded at system time: %u", device_state.system_time);
+    #endif
+}
+
+/**
+ ****************************************************************************************
  * @brief Handle handshake write (reminders + system time)
  * 
  * Protocol (from protocol doc):
