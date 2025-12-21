@@ -42,7 +42,7 @@
 #define CFG_BROADCASTER     1
 #undef CFG_CON
 #define CFG_CON             1
-#undef CFG_SECURITY_ON
+// #undef CFG_SECURITY_ON
 #undef CFG_GTL
 
 /****************************************************************************************************************/
